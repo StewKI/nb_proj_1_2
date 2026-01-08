@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NppApi/NppApi.csproj" />
+  <Project Path="NppCore/NppCore.csproj" />
+</Solution>
