@@ -15,11 +15,11 @@ services:
       - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=true
       - ConnectionStrings__Cassandra=Contact Points=cassandra;Port=9042
       - ConnectionStrings__Redis=redis:6379
-    depends_on:
-      cassandra:
-        condition: service_healthy
-      redis:
-        condition: service_started
+#    depends_on:
+#      cassandra:
+#        condition: service_healthy
+#      redis:
+#        condition: service_started
     networks:
       - npp-network
 
@@ -41,35 +41,35 @@ services:
     networks:
       - npp-network
 
-  cassandra:
-    image: cassandra:5
-    container_name: npp-cassandra
-    ports:
-      - "9042:9042"
-    volumes:
-      - cassandra-data:/var/lib/cassandra
-    environment:
-      - CASSANDRA_CLUSTER_NAME=npp-cluster
-      - CASSANDRA_DC=dc1
-    healthcheck:
-      test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    networks:
-      - npp-network
+#  cassandra:
+#    image: cassandra:5
+#    container_name: npp-cassandra
+#    ports:
+#      - "9042:9042"
+#    volumes:
+#      - cassandra-data:/var/lib/cassandra
+#    environment:
+#      - CASSANDRA_CLUSTER_NAME=npp-cluster
+#      - CASSANDRA_DC=dc1
+#    healthcheck:
+#      test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 5
+#      start_period: 60s
+#    networks:
+#      - npp-network
 
-  redis:
-    image: redis:7-alpine
-    container_name: npp-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-    networks:
-      - npp-network
+#  redis:
+#    image: redis:7-alpine
+#    container_name: npp-redis
+#    ports:
+#      - "6379:6379"
+#    volumes:
+#      - redis-data:/data
+#    command: redis-server --appendonly yes
+#    networks:
+#      - npp-network
 
 networks:
   npp-network:

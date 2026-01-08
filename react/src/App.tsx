@@ -1,35 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import { useGameHub } from './hooks/useGameHub'
+import { Lobby } from './components/Lobby'
+import { GameCanvas } from './components/GameCanvas'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const {
+    connected,
+    lobby,
+    gameState,
+    appState,
+    winner,
+    isPlayer1,
+    createGame,
+    joinGame,
+    movePaddle,
+    refreshLobby,
+    returnToLobby,
+  } = useGameHub();
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+  if (appState === 'lobby') {
+    return (
+      <Lobby
+        lobby={lobby}
+        connected={connected}
+        onCreateGame={createGame}
+        onJoinGame={joinGame}
+        onRefresh={refreshLobby}
+      />
+    );
+  }
+
+  if (appState === 'waiting') {
+    return (
+      <div className="waiting">
+        <h1>Waiting for opponent...</h1>
+        <p>Share this page with a friend to play!</p>
+        <div className="loader"></div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+    );
+  }
+
+  if (appState === 'ended') {
+    return (
+      <div className="game-over">
+        <h1>Game Over!</h1>
+        <p className="winner">{winner} wins!</p>
+        <button onClick={returnToLobby}>Back to Lobby</button>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    );
+  }
+
+  if (appState === 'playing' && gameState) {
+    return (
+      <GameCanvas
+        gameState={gameState}
+        onMovePaddle={movePaddle}
+        isPlayer1={isPlayer1}
+      />
+    );
+  }
+
+  return <div>Loading...</div>;
 }
 
 export default App
