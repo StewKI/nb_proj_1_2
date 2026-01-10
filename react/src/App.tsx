@@ -1,66 +1,30 @@
 import './App.css'
-import { useGameHub } from './hooks/useGameHub'
-import { Lobby } from './components/Lobby'
-import { GameCanvas } from './components/GameCanvas'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import { ProtectedRoute } from './components/ProtectedRoute'
+import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
+import { GamePage } from './pages/GamePage'
 
 function App() {
-  const {
-    connected,
-    lobby,
-    gameState,
-    appState,
-    winner,
-    isPlayer1,
-    createGame,
-    joinGame,
-    movePaddle,
-    refreshLobby,
-    returnToLobby,
-  } = useGameHub();
-
-  if (appState === 'lobby') {
-    return (
-      <Lobby
-        lobby={lobby}
-        connected={connected}
-        onCreateGame={createGame}
-        onJoinGame={joinGame}
-        onRefresh={refreshLobby}
-      />
-    );
-  }
-
-  if (appState === 'waiting') {
-    return (
-      <div className="waiting">
-        <h1>Waiting for opponent...</h1>
-        <p>Share this page with a friend to play!</p>
-        <div className="loader"></div>
-      </div>
-    );
-  }
-
-  if (appState === 'ended') {
-    return (
-      <div className="game-over">
-        <h1>Game Over!</h1>
-        <p className="winner">{winner} wins!</p>
-        <button onClick={returnToLobby}>Back to Lobby</button>
-      </div>
-    );
-  }
-
-  if (appState === 'playing' && gameState) {
-    return (
-      <GameCanvas
-        gameState={gameState}
-        onMovePaddle={movePaddle}
-        isPlayer1={isPlayer1}
-      />
-    );
-  }
-
-  return <div>Loading...</div>;
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <GamePage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  )
 }
 
 export default App

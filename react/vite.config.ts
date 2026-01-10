@@ -9,6 +9,10 @@ export default defineConfig({
         target: 'http://npp-backend:8080',
         ws: true,
         changeOrigin: true
+      },
+      '/auth': {
+        target: 'http://npp-backend:8080',
+        changeOrigin: true
       }
     }
   }

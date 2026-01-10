@@ -24,7 +24,7 @@ export interface LobbyGame {
 export type AppState = 'lobby' | 'waiting' | 'playing' | 'ended';
 
 export function useGameHub() {
-  const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
+  const [, setConnection] = useState<signalR.HubConnection | null>(null);
   const [connected, setConnected] = useState(false);
   const [lobby, setLobby] = useState<LobbyGame[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);

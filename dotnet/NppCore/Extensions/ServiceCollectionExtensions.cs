@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NppCore.Configuration;
+using NppCore.Services.Features.Auth;
+using NppCore.Services.Features.Player;
 using NppCore.Services.Persistence.Cassandra;
 using NppCore.Services.Persistence.Redis;
 
@@ -19,6 +21,18 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<CassandraConfiguration>(configuration.GetSection("Cassandra"));
         services.AddSingleton<ICassandraService, CassandraService>();
+        return services;
+    }
+
+    public static IServiceCollection AddPlayerService(this IServiceCollection services)
+    {
+        services.AddScoped<IPlayerService, PlayerService>();
+        return services;
+    }
+
+    public static IServiceCollection AddAuthService(this IServiceCollection services)
+    {
+        services.AddScoped<IAuthService, AuthService>();
         return services;
     }
 }
