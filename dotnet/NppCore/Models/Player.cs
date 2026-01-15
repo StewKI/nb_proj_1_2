@@ -15,3 +15,17 @@ public class PlayerByEmail
     public string PasswordHash { get; set; } = string.Empty;
     public Guid PlayerId { get; set; }
 }
+
+public class PlayerStatsSnapshot
+{
+    public Guid PlayerId { get; set; }
+    public long TotalPoints { get; set; }
+    public long GamesWon { get; set; }
+    public long GamesLost { get; set; }
+}
+
+public class PlayerInfo
+{
+    public Guid PlayerId { get; set; }
+    public string Username { get; set; } = string.Empty;
+}
