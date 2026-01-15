@@ -10,6 +10,7 @@ public enum GameState
 public class Player
 {
     public required string ConnectionId { get; set; }
+    public Guid PlayerId { get; set; } // Potrebno za ažuriranje statistike
     public required string Name { get; set; }
     public int Score { get; set; }
 }
