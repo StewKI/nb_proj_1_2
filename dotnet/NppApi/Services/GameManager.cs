@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 using NppApi.Hubs;
+using NppCore.Constants;
 using NppCore.Models;
+using NppCore.Services.Features.Player;
 
 namespace NppApi.Services;
 
@@ -10,12 +12,14 @@ public class GameManager : IHostedService, IDisposable
     private readonly ConcurrentDictionary<string, Game> _games = new();
     private readonly ConcurrentDictionary<string, string> _playerGameMap = new();
     private readonly IHubContext<GameHub> _hubContext;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private Timer? _gameLoopTimer;
     private readonly Random _random = new();
 
-    public GameManager(IHubContext<GameHub> hubContext)
+    public GameManager(IHubContext<GameHub> hubContext, IServiceScopeFactory serviceScopeFactory)
     {
         _hubContext = hubContext;
+        _serviceScopeFactory = serviceScopeFactory;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -35,13 +39,13 @@ public class GameManager : IHostedService, IDisposable
         _gameLoopTimer?.Dispose();
     }
 
-    public Game CreateGame(string connectionId, string playerName)
+    public Game CreateGame(string connectionId, Guid playerId, string playerName)
     {
         var gameId = Guid.NewGuid().ToString()[..8];
         var game = new Game
         {
             Id = gameId,
-            Player1 = new Player { ConnectionId = connectionId, Name = playerName },
+            Player1 = new Player { ConnectionId = connectionId, PlayerId = playerId, Name = playerName },
             State = GameState.WaitingForPlayer
         };
 
@@ -54,7 +58,7 @@ public class GameManager : IHostedService, IDisposable
         return game;
     }
 
-    public Game? JoinGame(string gameId, string connectionId, string playerName)
+    public Game? JoinGame(string gameId, string connectionId, Guid playerId, string playerName)
     {
         if (!_games.TryGetValue(gameId, out var game))
             return null;
@@ -62,7 +66,7 @@ public class GameManager : IHostedService, IDisposable
         if (game.State != GameState.WaitingForPlayer)
             return null;
 
-        game.Player2 = new Player { ConnectionId = connectionId, Name = playerName };
+        game.Player2 = new Player { ConnectionId = connectionId, PlayerId = playerId, Name = playerName };
         game.State = GameState.Playing;
         _playerGameMap[connectionId] = gameId;
 
@@ -137,7 +141,7 @@ public class GameManager : IHostedService, IDisposable
 
         var angle = (_random.NextDouble() - 0.5) * Math.PI / 2;
         var direction = _random.Next(2) == 0 ? 1 : -1;
-        var speed = 5.0;
+        var speed = (double)GameConstants.InitialBallSpeed;
 
         game.Ball.VelocityX = Math.Cos(angle) * speed * direction;
         game.Ball.VelocityY = Math.Sin(angle) * speed;
@@ -149,16 +153,16 @@ public class GameManager : IHostedService, IDisposable
         game.Paddle2.Y = (Game.CanvasHeight - Game.PaddleHeight) / 2.0;
     }
 
-    private void GameLoop(object? state)
+    private async void GameLoop(object? state)
     {
         foreach (var game in _games.Values.Where(g => g.State == GameState.Playing))
         {
-            UpdateBall(game);
-            BroadcastGameState(game);
+            await UpdateBallAsync(game);
+            await BroadcastGameStateAsync(game);
         }
     }
 
-    private void UpdateBall(Game game)
+    private async Task UpdateBallAsync(Game game)
     {
         game.Ball.X += game.Ball.VelocityX;
         game.Ball.Y += game.Ball.VelocityY;
@@ -176,9 +180,9 @@ public class GameManager : IHostedService, IDisposable
             game.Ball.Y <= game.Paddle1.Y + Game.PaddleHeight &&
             game.Ball.VelocityX < 0)
         {
-            game.Ball.VelocityX = -game.Ball.VelocityX * 1.05;
+            game.Ball.VelocityX = -game.Ball.VelocityX * GameConstants.BallSpeedMultiplier;
             var hitPos = (game.Ball.Y - game.Paddle1.Y) / Game.PaddleHeight;
-            game.Ball.VelocityY = (hitPos - 0.5) * 8;
+            game.Ball.VelocityY = (hitPos - 0.5) * GameConstants.MaxBallVerticalSpeed;
             game.Ball.X = Game.PaddleOffset + Game.PaddleWidth;
         }
 
@@ -188,9 +192,9 @@ public class GameManager : IHostedService, IDisposable
             game.Ball.Y <= game.Paddle2.Y + Game.PaddleHeight &&
             game.Ball.VelocityX > 0)
         {
-            game.Ball.VelocityX = -game.Ball.VelocityX * 1.05;
+            game.Ball.VelocityX = -game.Ball.VelocityX * GameConstants.BallSpeedMultiplier;
             var hitPos = (game.Ball.Y - game.Paddle2.Y) / Game.PaddleHeight;
-            game.Ball.VelocityY = (hitPos - 0.5) * 8;
+            game.Ball.VelocityY = (hitPos - 0.5) * GameConstants.MaxBallVerticalSpeed;
             game.Ball.X = Game.CanvasWidth - Game.PaddleOffset - Game.PaddleWidth - Game.BallSize;
         }
 
@@ -198,26 +202,31 @@ public class GameManager : IHostedService, IDisposable
         if (game.Ball.X < 0)
         {
             game.Player2!.Score++;
-            CheckWin(game);
+            await CheckWinAsync(game);
             InitializeBall(game);
         }
         else if (game.Ball.X > Game.CanvasWidth)
         {
             game.Player1!.Score++;
-            CheckWin(game);
+            await CheckWinAsync(game);
             InitializeBall(game);
         }
     }
 
-    private void CheckWin(Game game)
+    private async Task CheckWinAsync(Game game)
     {
         if (game.Player1!.Score >= Game.WinScore || game.Player2!.Score >= Game.WinScore)
         {
             game.State = GameState.Finished;
-            var winner = game.Player1.Score >= Game.WinScore ? game.Player1.Name : game.Player2.Name;
+            
+            var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2!;
+            var loser = winner == game.Player1 ? game.Player2! : game.Player1;
 
-            _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameEnded", winner);
-            _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameEnded", winner);
+            // Ažuriraj statistiku nakon meča (PROPERLY async now)
+            await UpdatePlayerStatsAsync(winner, loser);
+
+            await _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameEnded", winner.Name);
+            await _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameEnded", winner.Name);
 
             _playerGameMap.TryRemove(game.Player1.ConnectionId, out _);
             _playerGameMap.TryRemove(game.Player2.ConnectionId, out _);
@@ -225,7 +234,30 @@ public class GameManager : IHostedService, IDisposable
         }
     }
 
-    private void BroadcastGameState(Game game)
+    private async Task UpdatePlayerStatsAsync(Player winner, Player loser)
+    {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var playerStatsService = scope.ServiceProvider.GetRequiredService<IPlayerStatsService>();
+
+        try
+        {
+            await playerStatsService.UpdateStatsAfterMatchAsync(
+                winner.PlayerId,
+                winner.Name,
+                winner.Score,
+                loser.PlayerId,
+                loser.Name,
+                loser.Score
+            );
+        }
+        catch (Exception ex)
+        {
+            // Log error ali ne blokiraj igru
+            Console.WriteLine($"Error updating player stats: {ex.Message}");
+        }
+    }
+
+    private async Task BroadcastGameStateAsync(Game game)
     {
         var stateDto = new GameStateDto
         {
@@ -239,8 +271,8 @@ public class GameManager : IHostedService, IDisposable
         };
 
         if (game.Player1 != null)
-            _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameStateUpdated", stateDto);
+            await _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameStateUpdated", stateDto);
         if (game.Player2 != null)
-            _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
+            await _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
     }
 }

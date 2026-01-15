@@ -4,6 +4,7 @@ using Cassandra;
 using Cassandra.Mapping;
 using Microsoft.Extensions.Options;
 using NppCore.Configuration;
+using NppCore.Constants;
 
 namespace NppCore.Services.Persistence.Cassandra;
 
@@ -92,6 +93,17 @@ public class CassandraService : ICassandraService, IDisposable
             return existing;
 
         var prepared = await Session.PrepareAsync(cql);
+        
+        // Prevent memory leak: evict oldest statement if cache is full
+        if (_preparedStatements.Count >= GameConstants.MaxCachedPreparedStatements)
+        {
+            var oldestKey = _preparedStatements.Keys.FirstOrDefault();
+            if (oldestKey != null)
+            {
+                _preparedStatements.TryRemove(oldestKey, out _);
+            }
+        }
+        
         _preparedStatements.TryAdd(cql, prepared);
         return prepared;
     }
