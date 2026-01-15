@@ -13,6 +13,10 @@ export default defineConfig({
       '/auth': {
         target: 'http://npp-backend:8080',
         changeOrigin: true
+      },
+      '/api': {
+        target: 'http://npp-backend:8080',
+        changeOrigin: true
       }
     }
   }
