@@ -2,9 +2,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NppCore.Configuration;
 using NppCore.Services.Features.Auth;
+using NppCore.Services.Features.Match;
 using NppCore.Services.Features.Player;
 using NppCore.Services.Persistence.Cassandra;
 using NppCore.Services.Persistence.Redis;
+
+
 
 namespace NppCore.Extensions;
 
@@ -33,6 +36,13 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAuthService(this IServiceCollection services)
     {
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IJwtService, JwtService>();
+        return services;
+    }
+
+   public static IServiceCollection AddPlayerMatchService(this IServiceCollection services)
+    {
+        services.AddScoped<IPlayerMatchesService, PlayerMatchesService>();
         return services;
     }
 }

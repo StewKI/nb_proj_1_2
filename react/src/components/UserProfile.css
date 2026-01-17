@@ -1,0 +1,113 @@
+/* Kontejner koji drži sve */
+.profile-widget {
+  position: fixed; /* Ovo je ključno za fiksiranje */
+  top: 20px;
+  right: 20px;
+  width: 300px;
+  background-color: #1e1e2e; /* Tamna tema */
+  color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
+  z-index: 1000; /* Da bude iznad ostalog sadržaja */
+}
+
+/* Header: Avatar i Ime */
+.profile-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 15px;
+}
+
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 2px solid #7289da;
+  margin-right: 15px;
+}
+
+.profile-name {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.profile-status {
+  font-size: 0.8rem;
+  color: #43b581; /* Zelena za online */
+}
+
+/* Statistika */
+.profile-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  background: #2a2a3b;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.stat-item {
+  text-align: center;
+  flex: 1;
+}
+
+.stat-value {
+  display: block;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.stat-value.highlight {
+  color: #f1c40f; /* Zlatna boja za procenat */
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #aaa;
+  text-transform: uppercase;
+}
+
+/* Istorija mečeva */
+.matches-history h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  color: #bbb;
+  text-transform: uppercase;
+}
+
+.match-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.match-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Boje za pobedu i poraz */
+.match-item.win {
+  border-left: 4px solid #43b581; /* Zelena */
+}
+
+.match-item.loss {
+  border-left: 4px solid #f04747; /* Crvena */
+}
+
+.match-result {
+  font-weight: bold;
+}
+
+.match-map {
+  color: #ccc;
+}

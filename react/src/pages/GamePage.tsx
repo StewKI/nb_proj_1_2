@@ -2,6 +2,7 @@ import { useGameHub } from '../hooks/useGameHub'
 import { useAuth } from '../contexts/AuthContext'
 import { Lobby } from '../components/Lobby'
 import { GameCanvas } from '../components/GameCanvas'
+import UserProfile from '../components/UserProfile'
 
 export function GamePage() {
   const { user, logout } = useAuth();
