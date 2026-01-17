@@ -15,3 +15,9 @@ public class PlayerByEmail
     public string PasswordHash { get; set; } = string.Empty;
     public Guid PlayerId { get; set; }
 }
+
+public class PlayerByUsername
+{
+    public string Username { get; set; } = string.Empty;
+    public Guid PlayerId { get; set; }
+}

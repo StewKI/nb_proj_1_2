@@ -8,7 +8,7 @@ namespace NppApi.Controllers;
 
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 public class PlayerMatchesController : ControllerBase
 {
     private readonly IPlayerMatchesService _playerMatchesService;

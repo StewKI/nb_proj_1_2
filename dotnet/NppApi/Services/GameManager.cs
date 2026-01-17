@@ -2,6 +2,9 @@ using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
 using NppApi.Hubs;
 using NppCore.Models;
+using Microsoft.Extensions.DependencyInjection;
+using NppCore.Services.Features.Match;
+using NppCore.Services.Features.Player;
 
 namespace NppApi.Services;
 
@@ -13,9 +16,12 @@ public class GameManager : IHostedService, IDisposable
     private Timer? _gameLoopTimer;
     private readonly Random _random = new();
 
-    public GameManager(IHubContext<GameHub> hubContext)
+    private readonly IServiceScopeFactory _scopeFactory;
+
+    public GameManager(IHubContext<GameHub> hubContext, IServiceScopeFactory scopeFactory)
     {
         _hubContext = hubContext;
+        _scopeFactory = scopeFactory;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -215,6 +221,8 @@ public class GameManager : IHostedService, IDisposable
         {
             game.State = GameState.Finished;
             var winner = game.Player1.Score >= Game.WinScore ? game.Player1.Name : game.Player2.Name;
+            _= SaveMatchToDb(winner,game.Player1,game.Player2);
+            _= SaveMatchToDb(winner,game.Player2,game.Player1);
 
             _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameEnded", winner);
             _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameEnded", winner);
@@ -242,5 +250,34 @@ public class GameManager : IHostedService, IDisposable
             _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameStateUpdated", stateDto);
         if (game.Player2 != null)
             _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
+    }
+
+    private async Task SaveMatchToDb(string winnerName,Player p1,Player p2)
+    {
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            
+            var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
+            var playerServcice=scope.ServiceProvider.GetRequiredService<IPlayerService>();
+
+            var t1= playerServcice.GetByUsernameAsync(p1.Name);
+            var t2= playerServcice.GetByUsernameAsync(p2.Name);
+            
+            await Task.WhenAll(t1, t2);
+
+            var player1 = t1.Result;
+            var player2 = t2.Result;
+            
+            if (player1 == null || player2 == null)
+            {
+                Console.WriteLine($"GRESKA: Neki od igraca nije nadjen u bazi! {p1.Name} ili {p2.Name}");
+                return; 
+            }
+            string score = (p1.Name == winnerName) ? "Win" : "Loss";
+
+            string result = $"{p1.Score}-{p2.Score}";
+
+            await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,p2.Name,score,result);
+        }
     }
 }

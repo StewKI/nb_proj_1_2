@@ -55,4 +55,17 @@ public class PlayerService : IPlayerService
 
         return await GetByIdAsync(playerByEmail.PlayerId);
     }
+
+    public async Task<PlayerEntity?> GetByUsernameAsync(string username)
+    {
+        var playerByUsername = await _cassandra.QueryFirstOrDefaultAsync<PlayerByUsername>(
+            "SELECT username, player_id FROM players_by_username WHERE username = ?",
+            username
+        );
+
+        if (playerByUsername == null)
+            return null;
+
+        return await GetByIdAsync(playerByUsername.PlayerId);
+    }
 }

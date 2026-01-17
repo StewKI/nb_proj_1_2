@@ -32,6 +32,12 @@ public class AuthService : IAuthService
             player.PlayerId
         );
 
+        await _cassandra.ExecuteAsync(
+            "INSERT INTO players_by_username (username, player_id) VALUES (?, ?)",
+            username,
+            player.PlayerId
+        );
+
         var token = _jwtService.GenerateToken(player.PlayerId, player.Username, player.Email);
         return (player, token);
     }
