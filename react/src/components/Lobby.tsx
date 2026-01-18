@@ -1,5 +1,6 @@
 import type { LobbyGame } from '../hooks/useGameHub';
 import UserProfile from './UserProfile';
+import { HistoryWindow } from './MatchHistory';
 interface LobbyProps {
   lobby: LobbyGame[];
   connected: boolean;
@@ -14,6 +15,7 @@ export function Lobby({ lobby, connected, playerName, onCreateGame, onJoinGame, 
   return (
 
     <div className="lobby">
+      <HistoryWindow />
       <UserProfile />
       <div className="lobby-header">
         <h1>NPP Ping Pong</h1>

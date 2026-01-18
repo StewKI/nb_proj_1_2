@@ -34,16 +34,52 @@ public class PlayerMatchesService : IPlayerMatchesService
             playerMatches.OpponentUsername,
             playerMatches.Result,
             playerMatches.Score
-            
+
         );
 
         return playerMatches;
     }
 
-    public async Task<IEnumerable<PlayerMatches>> GetByYearAsync(string year, Guid playerId)
+    public async Task<IEnumerable<PlayerMatches>> GetByYearAsync(string year, Guid playerId, int page, int limit)
     {
         var query = "SELECT * FROM player_matches WHERE year = ? AND player_id = ?";
-        return await _cassandra.QueryAsync<PlayerMatches>(query, year, playerId);
+        var result = await _cassandra.QueryAsync<PlayerMatches>(query, year, playerId);
+
+        var pagedResult = result.Skip((page - 1) * limit).Take(limit).ToList();
+        return pagedResult;
     }
+
+    public async Task<MatchHistory> CreateHistoryAsync(DateTimeOffset mt, String p1, String p2, String score, string result)
+    {
+        string bucket=mt.ToString("yyyy-MM");
+        
+        var query = "INSERT INTO recent_matches (bucket,match_time,match_id,player1_username,player2_username,score,result) VALUES (?,?,?,?,?,?,?)";
+        var match = new MatchHistory
+        {
+            Bucket = bucket,
+            Match_time = mt,
+            MatchId = Guid.NewGuid(),
+            player1Username = p1,
+            player2Username = p2,
+            Score = score,
+            Result = result
+        };
+        await _cassandra.ExecuteAsync(query, match.Bucket, match.Match_time, match.MatchId, match.player1Username, match.player2Username, match.Score, match.Result);
+
+        return match;
+
+    }
+
+    public async Task<IEnumerable<MatchHistory>> GetHistoryAsync(String bucket, int page, int limit)
+    {
+        var query = "SELECT * FROM recent_matches WHERE bucket=?";
+        var res = await _cassandra.QueryAsync<MatchHistory>(query, bucket);
+        var result = res.Skip((page - 1) * limit)
+                        .Take(limit).ToList();
+
+        return result;
+    }
+
+
 
 }

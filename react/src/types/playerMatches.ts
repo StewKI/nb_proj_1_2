@@ -27,3 +27,11 @@ export interface PlayerMatchesResponse
     score:string;
     match_time:string;
 }
+
+export interface MatchHistory
+{
+    p1Username: string;
+    p2Username: string;
+    score: string;
+    result: string;
+}

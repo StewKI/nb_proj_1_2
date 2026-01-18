@@ -45,4 +45,5 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPlayerMatchesService, PlayerMatchesService>();
         return services;
     }
+   
 }

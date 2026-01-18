@@ -40,7 +40,7 @@ public class PlayerMatchesController : ControllerBase
 
     [Authorize]
     [HttpGet("{year}")]
-    public async Task<ActionResult<IEnumerable<PlayerMatchesResponse>>> GetPlayerMatchesByYearAsync([FromRoute] string year)
+    public async Task<ActionResult<IEnumerable<PlayerMatchesResponse>>> GetPlayerMatchesByYearAsync([FromRoute] string year,[FromQuery] int page=1,[FromQuery] int limit=5)
     {
         if (string.IsNullOrEmpty(year) || year.Length != 4)
         {
@@ -59,9 +59,23 @@ public class PlayerMatchesController : ControllerBase
             return Unauthorized("Nevalidan token.");
         }
 
-        var matches= await _playerMatchesService.GetByYearAsync(year,playerId);
+        var matches= await _playerMatchesService.GetByYearAsync(year,playerId,page,limit);
 
         var respone= matches.Select(match=>new PlayerMatchesResponse(match.PlayerId, match.OpponentUsername,match.Score, match.Result,match.Match_time));
+
+        return Ok(respone);
+    }
+
+    [Authorize]
+    [HttpGet("history")]
+    public async Task<ActionResult<IEnumerable<MatchHistoryResponse>>> GetHistoryAsync([FromQuery] int page=1,[FromQuery] int limit=10)
+    {
+        if (limit>100) limit=100;
+        
+
+        string bucket=DateTimeOffset.UtcNow.ToString("yyyy-MM");
+        var matches= await _playerMatchesService.GetHistoryAsync(bucket,page,limit);
+        var respone=matches.Select(match=>new MatchHistoryResponse(match.player1Username,match.player2Username,match.Score,match.Result));
 
         return Ok(respone);
     }

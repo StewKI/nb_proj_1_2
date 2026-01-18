@@ -17,3 +17,16 @@ public record PlayerMatchesResponse
     string Score,
     DateTimeOffset Match_time
 );
+
+public record MatchHistoryRequest 
+(
+
+);
+public record MatchHistoryResponse
+(
+    String P1Username,
+    String P2Username,
+    String Score,
+    String Result
+
+);

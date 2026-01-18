@@ -223,6 +223,7 @@ public class GameManager : IHostedService, IDisposable
             var winner = game.Player1.Score >= Game.WinScore ? game.Player1.Name : game.Player2.Name;
             _= SaveMatchToDb(winner,game.Player1,game.Player2);
             _= SaveMatchToDb(winner,game.Player2,game.Player1);
+            _= SaveHistoryToDb(winner,game.Player1,game.Player2);
 
             _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameEnded", winner);
             _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameEnded", winner);
@@ -278,6 +279,17 @@ public class GameManager : IHostedService, IDisposable
             string result = $"{p1.Score}-{p2.Score}";
 
             await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,p2.Name,score,result);
+        }
+    }
+
+    private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2)
+    {
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
+            string result = $"{p1.Score}-{p2.Score}";
+
+            await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow,p1.Name,p2.Name,winnerName,result);
         }
     }
 }
