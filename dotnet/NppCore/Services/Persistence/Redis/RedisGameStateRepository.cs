@@ -13,6 +13,9 @@ public class RedisGameStateRepository : IGameStateRepository
     private const string PlayerGameKeyPrefix = "player:game:";
     private const string OpenGamesKey = "games:open";
     private const string PlayingGamesKey = "games:playing";
+    private const string PausedGamesKey = "games:paused";
+    private const string ReconnectTokenKeyPrefix = "reconnect:";
+    private const string GameTokensKeyPrefix = "game:tokens:";
 
     public RedisGameStateRepository(IRedisService redis, ILogger<RedisGameStateRepository> logger)
     {
@@ -167,6 +170,155 @@ public class RedisGameStateRepository : IGameStateRepository
     {
         await _redis.SetRemoveAsync(OpenGamesKey, gameId);
         await _redis.SetAddAsync(PlayingGamesKey, gameId);
+    }
+
+    // Reconnection token methods
+    public async Task<string> CreateReconnectTokenAsync(string gameId, int playerNumber, string playerName, TimeSpan expiry)
+    {
+        var token = Guid.NewGuid().ToString();
+        var tokenKey = ReconnectTokenKeyPrefix + token;
+        var gameTokensKey = GameTokensKeyPrefix + gameId;
+
+        var fields = new Dictionary<string, string>
+        {
+            ["game_id"] = gameId,
+            ["player_number"] = playerNumber.ToString(),
+            ["player_name"] = playerName,
+            ["expires_at"] = DateTime.UtcNow.Add(expiry).ToString("O")
+        };
+
+        await _redis.HashSetAsync(tokenKey, fields);
+        await _redis.KeyExpireAsync(tokenKey, expiry);
+        await _redis.SetAddAsync(gameTokensKey, token);
+
+        // Store token in game hash as well
+        var gameKey = GameKeyPrefix + gameId;
+        await _redis.HashSetAsync(gameKey, $"player{playerNumber}_token", token);
+
+        _logger.LogDebug("Created reconnect token {Token} for player {PlayerNumber} in game {GameId}", token, playerNumber, gameId);
+        return token;
+    }
+
+    public async Task<ReconnectSession?> GetReconnectSessionAsync(string token)
+    {
+        var tokenKey = ReconnectTokenKeyPrefix + token;
+        var fields = await _redis.HashGetAllAsync(tokenKey);
+
+        if (fields.Count == 0)
+            return null;
+
+        if (!fields.TryGetValue("game_id", out var gameId) ||
+            !fields.TryGetValue("player_number", out var playerNumberStr) ||
+            !fields.TryGetValue("player_name", out var playerName))
+            return null;
+
+        return new ReconnectSession
+        {
+            Token = token,
+            GameId = gameId,
+            PlayerNumber = int.Parse(playerNumberStr),
+            PlayerName = playerName,
+            ExpiresAt = fields.TryGetValue("expires_at", out var expiresAt)
+                ? DateTime.Parse(expiresAt)
+                : DateTime.UtcNow
+        };
+    }
+
+    public async Task RemoveReconnectTokenAsync(string token)
+    {
+        var tokenKey = ReconnectTokenKeyPrefix + token;
+        var fields = await _redis.HashGetAllAsync(tokenKey);
+
+        if (fields.TryGetValue("game_id", out var gameId))
+        {
+            var gameTokensKey = GameTokensKeyPrefix + gameId;
+            await _redis.SetRemoveAsync(gameTokensKey, token);
+        }
+
+        await _redis.KeyDeleteAsync(tokenKey);
+        _logger.LogDebug("Removed reconnect token {Token}", token);
+    }
+
+    public async Task RemoveGameTokensAsync(string gameId)
+    {
+        var gameTokensKey = GameTokensKeyPrefix + gameId;
+        var tokens = await _redis.SetMembersAsync(gameTokensKey);
+
+        foreach (var token in tokens)
+        {
+            var tokenKey = ReconnectTokenKeyPrefix + token;
+            await _redis.KeyDeleteAsync(tokenKey);
+        }
+
+        await _redis.KeyDeleteAsync(gameTokensKey);
+        _logger.LogDebug("Removed all reconnect tokens for game {GameId}", gameId);
+    }
+
+    // Player connection state methods
+    public async Task SetPlayerConnectedAsync(string gameId, int playerNumber, bool connected, string? connectionId)
+    {
+        var gameKey = GameKeyPrefix + gameId;
+        var fields = new Dictionary<string, string>
+        {
+            [$"player{playerNumber}_connected"] = connected.ToString().ToLower()
+        };
+
+        if (connectionId != null)
+        {
+            fields[$"player{playerNumber}_id"] = connectionId;
+        }
+
+        await _redis.HashSetAsync(gameKey, fields);
+        _logger.LogDebug("Set player {PlayerNumber} connected={Connected} for game {GameId}", playerNumber, connected, gameId);
+    }
+
+    public async Task<PlayerConnectionState> GetPlayersConnectionStateAsync(string gameId)
+    {
+        var gameKey = GameKeyPrefix + gameId;
+        var fields = await _redis.HashGetAllAsync(gameKey);
+
+        return new PlayerConnectionState
+        {
+            Player1Connected = fields.TryGetValue("player1_connected", out var p1c) && p1c == "true",
+            Player2Connected = fields.TryGetValue("player2_connected", out var p2c) && p2c == "true",
+            Player1ConnectionId = fields.TryGetValue("player1_id", out var p1Id) ? p1Id : null,
+            Player2ConnectionId = fields.TryGetValue("player2_id", out var p2Id) ? p2Id : null
+        };
+    }
+
+    public async Task UpdatePlayerConnectionIdAsync(string gameId, int playerNumber, string newConnectionId)
+    {
+        var gameKey = GameKeyPrefix + gameId;
+        await _redis.HashSetAsync(gameKey, $"player{playerNumber}_id", newConnectionId);
+        _logger.LogDebug("Updated connection ID for player {PlayerNumber} in game {GameId} to {ConnectionId}", playerNumber, gameId, newConnectionId);
+    }
+
+    // Paused games methods
+    public async Task MoveToPausedGamesAsync(string gameId)
+    {
+        await _redis.SetRemoveAsync(PlayingGamesKey, gameId);
+        await _redis.SetAddAsync(PausedGamesKey, gameId);
+
+        var gameKey = GameKeyPrefix + gameId;
+        await _redis.HashSetAsync(gameKey, "state", GameState.Paused.ToString());
+
+        _logger.LogDebug("Moved game {GameId} to paused games", gameId);
+    }
+
+    public async Task MoveFromPausedToPlayingAsync(string gameId)
+    {
+        await _redis.SetRemoveAsync(PausedGamesKey, gameId);
+        await _redis.SetAddAsync(PlayingGamesKey, gameId);
+
+        var gameKey = GameKeyPrefix + gameId;
+        await _redis.HashSetAsync(gameKey, "state", GameState.Playing.ToString());
+
+        _logger.LogDebug("Moved game {GameId} from paused to playing", gameId);
+    }
+
+    public async Task<List<string>> GetPausedGameIdsAsync()
+    {
+        return await _redis.SetMembersAsync(PausedGamesKey);
     }
 
     private static Dictionary<string, string> SerializeGame(Game game)

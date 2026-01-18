@@ -12,6 +12,7 @@ export function GamePage() {
     appState,
     winner,
     isPlayer1,
+    pauseMessage,
     createGame,
     joinGame,
     movePaddle,
@@ -20,6 +21,16 @@ export function GamePage() {
   } = useGameHub();
 
   const playerName = user?.username ?? 'Player';
+
+  if (appState === 'reconnecting') {
+    return (
+      <div className="reconnecting">
+        <h1>Reconnecting...</h1>
+        <p>Attempting to reconnect to your game</p>
+        <div className="loader"></div>
+      </div>
+    );
+  }
 
   if (appState === 'lobby') {
     return (
@@ -51,6 +62,28 @@ export function GamePage() {
         <h1>Game Over!</h1>
         <p className="winner">{winner} wins!</p>
         <button onClick={returnToLobby}>Back to Lobby</button>
+      </div>
+    );
+  }
+
+  if (appState === 'paused' && gameState) {
+    return (
+      <div className="paused-game">
+        <GameCanvas
+          gameState={gameState}
+          onMovePaddle={movePaddle}
+          isPlayer1={isPlayer1}
+        />
+        <div className="pause-overlay">
+          <div className="pause-modal">
+            <h2>Game Paused</h2>
+            <p>{pauseMessage || 'Waiting for opponent to reconnect...'}</p>
+            <div className="loader"></div>
+            <button onClick={returnToLobby} className="leave-btn">
+              Leave Game
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

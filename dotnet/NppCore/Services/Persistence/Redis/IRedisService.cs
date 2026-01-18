@@ -32,4 +32,7 @@ public interface IRedisService
     // String operations (simple key-value)
     Task StringSetAsync(string key, string value, TimeSpan? expiry = null);
     Task<string?> StringGetAsync(string key);
+
+    // Key expiration
+    Task<bool> KeyExpireAsync(string key, TimeSpan expiry);
 }

@@ -163,6 +163,11 @@ public class RedisService : IRedisService, IDisposable
         return value.IsNullOrEmpty ? null : value.ToString();
     }
 
+    public async Task<bool> KeyExpireAsync(string key, TimeSpan expiry)
+    {
+        return await _db.KeyExpireAsync(key, expiry);
+    }
+
     public void Dispose()
     {
         _connection.Dispose();
