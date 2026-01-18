@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using NppApi.Hubs;
 using NppCore.Models;
+using NppCore.Services.Persistence.Redis;
 
 namespace NppApi.Services;
 
@@ -10,18 +12,61 @@ public class GameManager : IHostedService, IDisposable
     private readonly ConcurrentDictionary<string, Game> _games = new();
     private readonly ConcurrentDictionary<string, string> _playerGameMap = new();
     private readonly IHubContext<GameHub> _hubContext;
+    private readonly IGameStateRepository _gameStateRepository;
+    private readonly ILogger<GameManager> _logger;
     private Timer? _gameLoopTimer;
     private readonly Random _random = new();
+    private int _frameCount;
+    private const int SyncInterval = 5; // Sync to Redis every 5 frames (~83ms)
 
-    public GameManager(IHubContext<GameHub> hubContext)
+    public GameManager(
+        IHubContext<GameHub> hubContext,
+        IGameStateRepository gameStateRepository,
+        ILogger<GameManager> logger)
     {
         _hubContext = hubContext;
+        _gameStateRepository = gameStateRepository;
+        _logger = logger;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
+        await RecoverStateFromRedisAsync();
         _gameLoopTimer = new Timer(GameLoop, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000.0 / 60));
-        return Task.CompletedTask;
+    }
+
+    private async Task RecoverStateFromRedisAsync()
+    {
+        try
+        {
+            var games = await _gameStateRepository.LoadAllGamesAsync();
+            var playerMappings = await _gameStateRepository.LoadAllPlayerMappingsAsync();
+
+            foreach (var game in games)
+            {
+                // Only recover games that are still active (not finished)
+                if (game.State != GameState.Finished)
+                {
+                    _games[game.Id] = game;
+                }
+            }
+
+            foreach (var (connectionId, gameId) in playerMappings)
+            {
+                // Only restore mapping if the game exists
+                if (_games.ContainsKey(gameId))
+                {
+                    _playerGameMap[connectionId] = gameId;
+                }
+            }
+
+            _logger.LogInformation("Recovered {GameCount} games and {MappingCount} player mappings from Redis",
+                _games.Count, _playerGameMap.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to recover state from Redis, starting fresh");
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -51,6 +96,20 @@ public class GameManager : IHostedService, IDisposable
         _games[gameId] = game;
         _playerGameMap[connectionId] = gameId;
 
+        // Fire-and-forget Redis write
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _gameStateRepository.CreateGameAsync(game);
+                await _gameStateRepository.SetPlayerGameMappingAsync(connectionId, gameId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist game creation to Redis for game {GameId}", gameId);
+            }
+        });
+
         return game;
     }
 
@@ -62,9 +121,24 @@ public class GameManager : IHostedService, IDisposable
         if (game.State != GameState.WaitingForPlayer)
             return null;
 
-        game.Player2 = new Player { ConnectionId = connectionId, Name = playerName };
+        var player2 = new Player { ConnectionId = connectionId, Name = playerName };
+        game.Player2 = player2;
         game.State = GameState.Playing;
         _playerGameMap[connectionId] = gameId;
+
+        // Fire-and-forget Redis write
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _gameStateRepository.JoinGameAsync(gameId, player2);
+                await _gameStateRepository.SetPlayerGameMappingAsync(connectionId, gameId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist game join to Redis for game {GameId}", gameId);
+            }
+        });
 
         return game;
     }
@@ -114,6 +188,24 @@ public class GameManager : IHostedService, IDisposable
                 _hubContext.Clients.Client(otherPlayerId).SendAsync("GameEnded", "Opponent disconnected");
             }
 
+            // Fire-and-forget Redis cleanup
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _gameStateRepository.RemoveGameAsync(gameId);
+                    await _gameStateRepository.RemovePlayerMappingAsync(connectionId);
+                    if (otherPlayerId != null)
+                    {
+                        await _gameStateRepository.RemovePlayerMappingAsync(otherPlayerId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to clean up Redis for game {GameId}", gameId);
+                }
+            });
+
             _hubContext.Clients.All.SendAsync("LobbyUpdated", GetOpenGames());
         }
     }
@@ -151,10 +243,31 @@ public class GameManager : IHostedService, IDisposable
 
     private void GameLoop(object? state)
     {
+        _frameCount++;
+        var shouldSync = _frameCount % SyncInterval == 0;
+
         foreach (var game in _games.Values.Where(g => g.State == GameState.Playing))
         {
             UpdateBall(game);
             BroadcastGameState(game);
+
+            // Periodic sync to Redis every N frames
+            if (shouldSync)
+            {
+                var gameId = game.Id;
+                var gameCopy = game; // Capture for closure
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _gameStateRepository.SyncGameStateAsync(gameId, gameCopy);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to sync game state to Redis for game {GameId}", gameId);
+                    }
+                });
+            }
         }
     }
 
@@ -219,9 +332,28 @@ public class GameManager : IHostedService, IDisposable
             _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameEnded", winner);
             _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameEnded", winner);
 
-            _playerGameMap.TryRemove(game.Player1.ConnectionId, out _);
-            _playerGameMap.TryRemove(game.Player2.ConnectionId, out _);
-            _games.TryRemove(game.Id, out _);
+            var player1Id = game.Player1.ConnectionId;
+            var player2Id = game.Player2.ConnectionId;
+            var gameId = game.Id;
+
+            _playerGameMap.TryRemove(player1Id, out _);
+            _playerGameMap.TryRemove(player2Id, out _);
+            _games.TryRemove(gameId, out _);
+
+            // Fire-and-forget Redis cleanup
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _gameStateRepository.RemoveGameAsync(gameId);
+                    await _gameStateRepository.RemovePlayerMappingAsync(player1Id);
+                    await _gameStateRepository.RemovePlayerMappingAsync(player2Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to clean up Redis after game {GameId} finished", gameId);
+                }
+            });
         }
     }
 

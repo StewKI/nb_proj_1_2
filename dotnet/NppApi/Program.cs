@@ -12,6 +12,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<GameManager>());
 
 builder.Services.AddCassandraService(builder.Configuration);
 builder.Services.AddRedisService(builder.Configuration);
+builder.Services.AddGameStateRepository();
 builder.Services.AddPlayerService();
 builder.Services.AddAuthService();
 

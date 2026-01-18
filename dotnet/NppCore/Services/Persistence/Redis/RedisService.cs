@@ -86,6 +86,83 @@ public class RedisService : IRedisService, IDisposable
         return await _db.SortedSetRemoveAsync(leaderboardKey, member);
     }
 
+    // Hash operations
+    public async Task HashSetAsync(string key, string field, string value)
+    {
+        await _db.HashSetAsync(key, field, value);
+    }
+
+    public async Task HashSetAsync(string key, Dictionary<string, string> fields)
+    {
+        var hashEntries = fields.Select(f => new HashEntry(f.Key, f.Value)).ToArray();
+        await _db.HashSetAsync(key, hashEntries);
+    }
+
+    public async Task<string?> HashGetAsync(string key, string field)
+    {
+        var value = await _db.HashGetAsync(key, field);
+        return value.IsNullOrEmpty ? null : value.ToString();
+    }
+
+    public async Task<Dictionary<string, string>> HashGetAllAsync(string key)
+    {
+        var entries = await _db.HashGetAllAsync(key);
+        return entries.ToDictionary(
+            e => e.Name.ToString(),
+            e => e.Value.ToString()
+        );
+    }
+
+    public async Task<bool> HashDeleteAsync(string key, string field)
+    {
+        return await _db.HashDeleteAsync(key, field);
+    }
+
+    // Set operations
+    public async Task<bool> SetAddAsync(string key, string value)
+    {
+        return await _db.SetAddAsync(key, value);
+    }
+
+    public async Task<bool> SetRemoveAsync(string key, string value)
+    {
+        return await _db.SetRemoveAsync(key, value);
+    }
+
+    public async Task<List<string>> SetMembersAsync(string key)
+    {
+        var members = await _db.SetMembersAsync(key);
+        return members.Select(m => m.ToString()).ToList();
+    }
+
+    // Key operations
+    public async Task<bool> KeyDeleteAsync(string key)
+    {
+        return await _db.KeyDeleteAsync(key);
+    }
+
+    public async Task<List<string>> KeysAsync(string pattern)
+    {
+        var server = _connection.GetServer(_connection.GetEndPoints().First());
+        var keys = server.Keys(pattern: pattern);
+        return keys.Select(k => k.ToString()).ToList();
+    }
+
+    // String operations
+    public async Task StringSetAsync(string key, string value, TimeSpan? expiry = null)
+    {
+        if (expiry.HasValue)
+            await _db.StringSetAsync(key, value, expiry.Value);
+        else
+            await _db.StringSetAsync(key, value);
+    }
+
+    public async Task<string?> StringGetAsync(string key)
+    {
+        var value = await _db.StringGetAsync(key);
+        return value.IsNullOrEmpty ? null : value.ToString();
+    }
+
     public void Dispose()
     {
         _connection.Dispose();

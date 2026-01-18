@@ -35,4 +35,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthService, AuthService>();
         return services;
     }
+
+    public static IServiceCollection AddGameStateRepository(this IServiceCollection services)
+    {
+        services.AddSingleton<IGameStateRepository, RedisGameStateRepository>();
+        return services;
+    }
 }
