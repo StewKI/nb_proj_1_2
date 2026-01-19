@@ -64,6 +64,51 @@ CREATE TABLE IF NOT EXISTS monthly_leaderboard (
 );
 
 -- =====================================================
+-- GLOBAL LEADERBOARD (po periodima)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS global_leaderboard (
+    period_type text,     -- npr. 'MONTHLY', 'YEARLY', 'ALL_TIME'
+    period_id text,       -- npr. '2024-01'
+    rank_score int,       -- vrednost po kojoj rangiramo (npr. broj pobeda)
+    player_id uuid,
+    username text,
+    PRIMARY KEY ((period_type, period_id), rank_score, player_id)
+) WITH CLUSTERING ORDER BY (rank_score DESC);
+
+-- =====================================================
+-- WINS LEADERBOARD (po broju pobeda)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS leaderboard_by_wins (
+    category text,        -- npr. 'most_wins'
+    games_won int,
+    player_id uuid,
+    username text,
+    PRIMARY KEY (category, games_won, player_id)
+) WITH CLUSTERING ORDER BY (games_won DESC);
+
+-- =====================================================
+-- PLAYER CURRENT STREAK (trenutni streak igrača)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS player_current_streak (
+    player_id uuid PRIMARY KEY,
+    username text,
+    current_streak int,
+    longest_streak int,
+    last_result text -- 'WIN' ili 'LOSS'
+);
+
+-- =====================================================
+-- LONGEST STREAK LEADERBOARD (po najdužem streaku)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS leaderboard_by_longest_streak (
+    category text,           -- npr. 'global_all_time'
+    longest_streak int,
+    player_id uuid,
+    username text,
+    PRIMARY KEY (category, longest_streak, player_id)
+) WITH CLUSTERING ORDER BY (longest_streak DESC);
+
+-- =====================================================
 -- REDIS STRUCTURES (DOKUMENTACIJA)
 -- =====================================================
 -- Redis nema CQL tabele, ali ovo je dokumentacija

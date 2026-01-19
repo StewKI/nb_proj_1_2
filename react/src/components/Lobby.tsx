@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { LobbyGame } from '../hooks/useGameHub';
 
 interface LobbyProps {
@@ -17,6 +18,9 @@ export function Lobby({ lobby, connected, playerName, onCreateGame, onJoinGame, 
         <h1>NPP Ping Pong</h1>
         <div className="user-info">
           <span>Playing as <strong>{playerName}</strong></span>
+          <Link to="/leaderboard" className="leaderboard-link">
+            🏆 Leaderboard
+          </Link>
           <button onClick={onLogout} className="logout-btn">Logout</button>
         </div>
       </div>
