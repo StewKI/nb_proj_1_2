@@ -66,6 +66,7 @@ builder.Services.AddHostedService<LeaderboardSnapshotService>();
 
 builder.Services.AddCassandraService(builder.Configuration);
 builder.Services.AddRedisService(builder.Configuration);
+builder.Services.AddGameStateRepository();
 builder.Services.AddPlayerService();
 builder.Services.AddAuthService();
 builder.Services.AddLeaderboardService();

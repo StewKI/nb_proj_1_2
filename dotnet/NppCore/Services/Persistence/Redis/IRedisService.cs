@@ -12,4 +12,27 @@ public interface IRedisService
     Task<long?> LeaderboardGetRankAsync(string leaderboardKey, string member);
     Task<double?> LeaderboardGetScoreAsync(string leaderboardKey, string member);
     Task<bool> LeaderboardRemoveAsync(string leaderboardKey, string member);
+
+    // Hash operations
+    Task HashSetAsync(string key, string field, string value);
+    Task HashSetAsync(string key, Dictionary<string, string> fields);
+    Task<string?> HashGetAsync(string key, string field);
+    Task<Dictionary<string, string>> HashGetAllAsync(string key);
+    Task<bool> HashDeleteAsync(string key, string field);
+
+    // Set operations
+    Task<bool> SetAddAsync(string key, string value);
+    Task<bool> SetRemoveAsync(string key, string value);
+    Task<List<string>> SetMembersAsync(string key);
+
+    // Key operations
+    Task<bool> KeyDeleteAsync(string key);
+    Task<List<string>> KeysAsync(string pattern);
+
+    // String operations (simple key-value)
+    Task StringSetAsync(string key, string value, TimeSpan? expiry = null);
+    Task<string?> StringGetAsync(string key);
+
+    // Key expiration
+    Task<bool> KeyExpireAsync(string key, TimeSpan expiry);
 }
