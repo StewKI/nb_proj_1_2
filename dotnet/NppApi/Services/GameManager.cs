@@ -29,15 +29,12 @@ public class GameManager : IHostedService, IDisposable
     public GameManager(
         IHubContext<GameHub> hubContext,
         IGameStateRepository gameStateRepository,
-        ILogger<GameManager> logger)
+        ILogger<GameManager> logger,
+        IServiceScopeFactory serviceScopeFactory)
     {
         _hubContext = hubContext;
         _gameStateRepository = gameStateRepository;
         _logger = logger;
-
-    public GameManager(IHubContext<GameHub> hubContext, IServiceScopeFactory serviceScopeFactory)
-    {
-        _hubContext = hubContext;
         _serviceScopeFactory = serviceScopeFactory;
     }
 
@@ -104,8 +101,7 @@ public class GameManager : IHostedService, IDisposable
         _timeoutCheckTimer?.Dispose();
     }
 
-    public async Task<(Game game, string token)> CreateGameAsync(string connectionId, string playerName)
-    public Game CreateGame(string connectionId, Guid playerId, string playerName)
+    public async Task<(Game game, string token)> CreateGameAsync(string connectionId, Guid playerId, string playerName)
     {
         var gameId = Guid.NewGuid().ToString()[..8];
         var game = new Game
@@ -140,8 +136,7 @@ public class GameManager : IHostedService, IDisposable
         }
     }
 
-    public async Task<(Game? game, string? token)> JoinGameAsync(string gameId, string connectionId, string playerName)
-    public Game? JoinGame(string gameId, string connectionId, Guid playerId, string playerName)
+    public async Task<(Game? game, string? token)> JoinGameAsync(string gameId, string connectionId, Guid playerId, string playerName)
     {
         if (!_games.TryGetValue(gameId, out var game))
             return (null, null);
@@ -149,9 +144,8 @@ public class GameManager : IHostedService, IDisposable
         if (game.State != GameState.WaitingForPlayer)
             return (null, null);
 
-        var player2 = new Player { ConnectionId = connectionId, Name = playerName };
+        var player2 = new Player { ConnectionId = connectionId, PlayerId = playerId, Name = playerName };
         game.Player2 = player2;
-        game.Player2 = new Player { ConnectionId = connectionId, PlayerId = playerId, Name = playerName };
         game.State = GameState.Playing;
         _playerGameMap[connectionId] = gameId;
 
@@ -519,12 +513,10 @@ public class GameManager : IHostedService, IDisposable
                     }
                 });
             }
-            await UpdateBallAsync(game);
-            await BroadcastGameStateAsync(game);
         }
     }
 
-    private async Task UpdateBallAsync(Game game)
+    private void UpdateBall(Game game)
     {
         game.Ball.X += game.Ball.VelocityX;
         game.Ball.Y += game.Ball.VelocityY;
@@ -564,18 +556,18 @@ public class GameManager : IHostedService, IDisposable
         if (game.Ball.X < 0)
         {
             game.Player2!.Score++;
-            await CheckWinAsync(game);
+            CheckWin(game);
             InitializeBall(game);
         }
         else if (game.Ball.X > Game.CanvasWidth)
         {
             game.Player1!.Score++;
-            await CheckWinAsync(game);
+            CheckWin(game);
             InitializeBall(game);
         }
     }
 
-    private async Task CheckWinAsync(Game game)
+    private void CheckWin(Game game)
     {
         if (game.Player1 == null || game.Player2 == null)
             return;
@@ -583,19 +575,20 @@ public class GameManager : IHostedService, IDisposable
         if (game.Player1.Score >= Game.WinScore || game.Player2.Score >= Game.WinScore)
         {
             game.State = GameState.Finished;
-            
+
             var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2!;
             var loser = winner == game.Player1 ? game.Player2! : game.Player1;
 
-            // Ažuriraj statistiku nakon meča (PROPERLY async now)
-            await UpdatePlayerStatsAsync(winner, loser);
-
-            await _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameEnded", winner.Name);
-            await _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameEnded", winner.Name);
+            // Update player stats asynchronously
+            _ = UpdatePlayerStatsAsync(winner, loser);
 
             var player1Id = game.Player1.ConnectionId;
             var player2Id = game.Player2.ConnectionId;
             var gameId = game.Id;
+
+            // Notify players
+            _ = _hubContext.Clients.Client(player1Id).SendAsync("GameEnded", winner.Name);
+            _ = _hubContext.Clients.Client(player2Id).SendAsync("GameEnded", winner.Name);
 
             _playerGameMap.TryRemove(player1Id, out _);
             _playerGameMap.TryRemove(player2Id, out _);
@@ -638,12 +631,11 @@ public class GameManager : IHostedService, IDisposable
         }
         catch (Exception ex)
         {
-            // Log error ali ne blokiraj igru
-            Console.WriteLine($"Error updating player stats: {ex.Message}");
+            _logger.LogError(ex, "Error updating player stats");
         }
     }
 
-    private async Task BroadcastGameStateAsync(Game game)
+    private void BroadcastGameState(Game game)
     {
         var stateDto = new GameStateDto
         {
@@ -657,8 +649,8 @@ public class GameManager : IHostedService, IDisposable
         };
 
         if (game.Player1 != null)
-            await _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameStateUpdated", stateDto);
+            _ = _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameStateUpdated", stateDto);
         if (game.Player2 != null)
-            await _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
+            _ = _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
     }
 }

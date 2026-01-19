@@ -32,8 +32,8 @@ public class PlayerStatsService : IPlayerStatsService
         var now = DateTimeOffset.UtcNow;
         var currentMonth = $"{now.Year}-{now.Month:D2}";
         var currentYear = $"{now.Year}";
-        int winnerPoints = winnerScore * GameConstants.PointsPerScore;
-        int loserPoints = loserScore * GameConstants.PointsPerScore;
+        long winnerPoints = winnerScore * GameConstants.PointsPerScore;
+        long loserPoints = loserScore * GameConstants.PointsPerScore;
 
         // DUAL WRITE PROBLEM MITIGATION:
         // Cassandra nema ACID transakcije preko više tabela.

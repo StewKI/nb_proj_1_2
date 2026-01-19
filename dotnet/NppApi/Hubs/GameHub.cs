@@ -18,26 +18,23 @@ public class GameHub : Hub
 
     public async Task CreateGame(string playerName)
     {
-        var (game, token) = await _gameManager.CreateGameAsync(Context.ConnectionId, playerName);
-        await Groups.AddToGroupAsync(Context.ConnectionId, game.Id);
-
-        // Send reconnect token to the player
-        if (!string.IsNullOrEmpty(token))
-        {
-            await Clients.Caller.SendAsync("ReconnectToken", new ReconnectTokenDto
-            {
-                Token = token,
-                GameId = game.Id,
-                PlayerNumber = 1
-            });
-        }
-
-        await Clients.All.SendAsync("LobbyUpdated", _gameManager.GetOpenGames());
         try
         {
             var playerId = GetPlayerIdFromClaims();
-            var game = _gameManager.CreateGame(Context.ConnectionId, playerId, playerName);
+            var (game, token) = await _gameManager.CreateGameAsync(Context.ConnectionId, playerId, playerName);
             await Groups.AddToGroupAsync(Context.ConnectionId, game.Id);
+
+            // Send reconnect token to the player
+            if (!string.IsNullOrEmpty(token))
+            {
+                await Clients.Caller.SendAsync("ReconnectToken", new ReconnectTokenDto
+                {
+                    Token = token,
+                    GameId = game.Id,
+                    PlayerNumber = 1
+                });
+            }
+
             await Clients.All.SendAsync("LobbyUpdated", _gameManager.GetOpenGames());
         }
         catch (Exception ex)
@@ -49,33 +46,29 @@ public class GameHub : Hub
 
     public async Task JoinGame(string gameId, string playerName)
     {
-        var (game, token) = await _gameManager.JoinGameAsync(gameId, Context.ConnectionId, playerName);
-        if (game == null)
         try
         {
             var playerId = GetPlayerIdFromClaims();
-            var game = _gameManager.JoinGame(gameId, Context.ConnectionId, playerId, playerName);
+            var (game, token) = await _gameManager.JoinGameAsync(gameId, Context.ConnectionId, playerId, playerName);
             if (game == null)
             {
                 await Clients.Caller.SendAsync("JoinFailed", "Game not found or already started");
                 return;
             }
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
-
-        // Send reconnect token to the joining player
-        if (!string.IsNullOrEmpty(token))
-        {
-            await Clients.Caller.SendAsync("ReconnectToken", new ReconnectTokenDto
-            {
-                Token = token,
-                GameId = game.Id,
-                PlayerNumber = 2
-            });
-        }
-
-        await Clients.All.SendAsync("LobbyUpdated", _gameManager.GetOpenGames());
             await Groups.AddToGroupAsync(Context.ConnectionId, gameId);
+
+            // Send reconnect token to the joining player
+            if (!string.IsNullOrEmpty(token))
+            {
+                await Clients.Caller.SendAsync("ReconnectToken", new ReconnectTokenDto
+                {
+                    Token = token,
+                    GameId = game.Id,
+                    PlayerNumber = 2
+                });
+            }
+
             await Clients.All.SendAsync("LobbyUpdated", _gameManager.GetOpenGames());
 
             var stateDto = new GameStateDto
@@ -183,7 +176,7 @@ public class GameHub : Hub
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error moving paddle for connection {ConnectionId}", Context.ConnectionId);
-            // Ne throwujemo HubException za paddle update jer je to frequent operation
+            // Don't throw HubException for paddle update as it's a frequent operation
             return Task.CompletedTask;
         }
     }
@@ -197,7 +190,7 @@ public class GameHub : Hub
     private Guid GetPlayerIdFromClaims()
     {
         var playerIdClaim = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        
+
         if (string.IsNullOrEmpty(playerIdClaim) || !Guid.TryParse(playerIdClaim, out var playerId))
         {
             throw new HubException("User is not authenticated or PlayerId is invalid");
