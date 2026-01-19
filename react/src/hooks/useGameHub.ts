@@ -43,8 +43,12 @@ export function useGameHub() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem('jwt_token');
+    
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl('/gamehub')
+      .withUrl('/gamehub', {
+        accessTokenFactory: () => token || ''
+      })
       .withAutomaticReconnect()
       .build();
 
@@ -158,7 +162,7 @@ export function useGameHub() {
     };
   }, []);
 
-  const createGame = useCallback(async (playerName: string) => {
+  const createGame = useCallback(async (playerId: string, playerName: string) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       setIsPlayer1(true);
       await connectionRef.current.invoke('CreateGame', playerName);
@@ -166,7 +170,7 @@ export function useGameHub() {
     }
   }, []);
 
-  const joinGame = useCallback(async (gameId: string, playerName: string) => {
+  const joinGame = useCallback(async (gameId: string, playerId: string, playerName: string) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       setIsPlayer1(false);
       await connectionRef.current.invoke('JoinGame', gameId, playerName);

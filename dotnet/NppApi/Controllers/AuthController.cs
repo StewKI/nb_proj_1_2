@@ -18,19 +18,21 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request)
     {
-        var player = await _authService.RegisterAsync(request.Username, request.Email, request.Password);
+        var (player, token) = await _authService.RegisterAsync(request.Username, request.Email, request.Password);
 
-        return Ok(new RegisterResponse(player.PlayerId, player.Username, player.Email));
+        return Ok(new RegisterResponse(player.PlayerId, player.Username, player.Email, token));
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<RegisterResponse>> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
-        var player = await _authService.LoginAsync(request.Email, request.Password);
+        var result = await _authService.LoginAsync(request.Email, request.Password);
 
-        if (player == null)
+        if (result == null)
             return Unauthorized("Invalid email or password");
 
-        return Ok(new RegisterResponse(player.PlayerId, player.Username, player.Email));
+        var (player, token) = result.Value;
+
+        return Ok(new LoginResponse(player.PlayerId, player.Username, player.Email, token));
     }
 }

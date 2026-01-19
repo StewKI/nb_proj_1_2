@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useGameHub } from '../hooks/useGameHub'
 import { useAuth } from '../contexts/AuthContext'
 import { Lobby } from '../components/Lobby'
@@ -21,6 +22,7 @@ export function GamePage() {
   } = useGameHub();
 
   const playerName = user?.username ?? 'Player';
+  const playerId = user?.playerId ?? '';
 
   if (appState === 'reconnecting') {
     return (
@@ -38,8 +40,8 @@ export function GamePage() {
         lobby={lobby}
         connected={connected}
         playerName={playerName}
-        onCreateGame={() => createGame(playerName)}
-        onJoinGame={(gameId) => joinGame(gameId, playerName)}
+        onCreateGame={() => createGame(playerId, playerName)}
+        onJoinGame={(gameId) => joinGame(gameId, playerId, playerName)}
         onRefresh={refreshLobby}
         onLogout={logout}
       />
@@ -61,7 +63,12 @@ export function GamePage() {
       <div className="game-over">
         <h1>Game Over!</h1>
         <p className="winner">{winner} wins!</p>
-        <button onClick={returnToLobby}>Back to Lobby</button>
+        <div className="game-over-actions">
+          <button onClick={returnToLobby}>Back to Lobby</button>
+          <Link to="/leaderboard" className="secondary-btn">
+            View Leaderboard
+          </Link>
+        </div>
       </div>
     );
   }

@@ -1,0 +1,145 @@
+.streak-card {
+  background: #1a1a1a;
+  border: 2px solid #646cff;
+  border-radius: 16px;
+  padding: 28px;
+  color: rgba(255, 255, 255, 0.87);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  margin-bottom: 32px;
+}
+
+.streak-title {
+  margin: 0 0 24px 0;
+  font-size: 1.5rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.streak-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.streak-stat {
+  flex: 1;
+  text-align: center;
+  padding: 20px;
+  background: #242424;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.streak-stat.active {
+  background: #646cff;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(100, 108, 255, 0.4);
+}
+
+.streak-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+.streak-value {
+  font-size: 3rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.streak-value.trophy {
+  color: #646cff;
+}
+
+.streak-icon {
+  font-size: 2rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.streak-divider {
+  width: 2px;
+  height: 80px;
+  background: #444;
+}
+
+.streak-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #444;
+}
+
+.last-result {
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: #242424;
+  display: inline-block;
+}
+
+.last-result.win {
+  color: #4ade80;
+}
+
+.last-result.loss {
+  color: #ff6b6b;
+}
+
+.streak-loading,
+.streak-error {
+  text-align: center;
+  padding: 40px;
+  font-size: 1.1rem;
+}
+
+.streak-error {
+  background: #242424;
+  border-radius: 8px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .streak-card {
+    padding: 20px;
+  }
+
+  .streak-stats {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .streak-stat {
+    width: 100%;
+  }
+
+  .streak-divider {
+    width: 100%;
+    height: 2px;
+  }
+
+  .streak-value {
+    font-size: 2.5rem;
+  }
+
+  .streak-icon {
+    font-size: 1.5rem;
+  }
+}
