@@ -4,12 +4,14 @@ public enum GameState
 {
     WaitingForPlayer,
     Playing,
+    Paused,
     Finished
 }
 
 public class Player
 {
     public required string ConnectionId { get; set; }
+    public Guid PlayerId { get; set; } // Potrebno za ažuriranje statistike
     public required string Name { get; set; }
     public int Score { get; set; }
 }
@@ -78,4 +80,37 @@ public class LobbyGameDto
 {
     public required string GameId { get; set; }
     public required string HostName { get; set; }
+}
+
+public class ReconnectSession
+{
+    public required string Token { get; set; }
+    public required string GameId { get; set; }
+    public required int PlayerNumber { get; set; }
+    public required string PlayerName { get; set; }
+    public DateTime ExpiresAt { get; set; }
+}
+
+public class ReconnectResultDto
+{
+    public bool Success { get; set; }
+    public string? GameId { get; set; }
+    public int? PlayerNumber { get; set; }
+    public string? PlayerName { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+
+public class ReconnectTokenDto
+{
+    public required string Token { get; set; }
+    public required string GameId { get; set; }
+    public required int PlayerNumber { get; set; }
+}
+
+public class PlayerConnectionState
+{
+    public bool Player1Connected { get; set; }
+    public bool Player2Connected { get; set; }
+    public string? Player1ConnectionId { get; set; }
+    public string? Player2ConnectionId { get; set; }
 }
