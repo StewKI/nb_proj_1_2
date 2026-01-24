@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using NppCore.Models;
 using NppCore.Services.Features.Auth;
 
+
 namespace NppApi.Controllers;
 
 [ApiController]
@@ -9,10 +10,11 @@ namespace NppApi.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
-
+   
     public AuthController(IAuthService authService)
     {
         _authService = authService;
+       
     }
 
     [HttpPost("register")]
@@ -27,12 +29,10 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
         var result = await _authService.LoginAsync(request.Email, request.Password);
-
         if (result == null)
             return Unauthorized("Invalid email or password");
 
         var (player, token) = result.Value;
-
         return Ok(new LoginResponse(player.PlayerId, player.Username, player.Email, token));
     }
 }

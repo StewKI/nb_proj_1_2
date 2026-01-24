@@ -69,6 +69,8 @@ builder.Services.AddRedisService(builder.Configuration);
 builder.Services.AddGameStateRepository();
 builder.Services.AddPlayerService();
 builder.Services.AddAuthService();
+builder.Services.AddPlayerMatchService();
+
 builder.Services.AddLeaderboardService();
 
 builder.Services.AddCors(options =>

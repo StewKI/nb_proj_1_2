@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Lobby } from '../components/Lobby'
 import { GameCanvas } from '../components/GameCanvas'
 
+
 export function GamePage() {
   const { user, logout } = useAuth();
   const {

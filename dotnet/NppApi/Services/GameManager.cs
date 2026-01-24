@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using NppApi.Hubs;
 using NppCore.Constants;
 using NppCore.Models;
+using Microsoft.Extensions.DependencyInjection;
+using NppCore.Services.Features.Match;
 using NppCore.Services.Persistence.Redis;
 using NppCore.Services.Features.Player;
 
@@ -22,7 +24,7 @@ public class GameManager : IHostedService, IDisposable
     private Timer? _timeoutCheckTimer;
     private readonly Random _random = new();
     private int _frameCount;
-    private const int SyncInterval = 5; // Sync to Redis every 5 frames (~83ms)
+    private const int SyncInterval = 5;
     private static readonly TimeSpan ReconnectTokenExpiry = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TimeoutCheckInterval = TimeSpan.FromSeconds(30);
 
@@ -37,6 +39,7 @@ public class GameManager : IHostedService, IDisposable
         _logger = logger;
         _serviceScopeFactory = serviceScopeFactory;
     }
+
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -576,42 +579,27 @@ public class GameManager : IHostedService, IDisposable
         {
             game.State = GameState.Finished;
 
-            var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2!;
-            var loser = winner == game.Player1 ? game.Player2! : game.Player1;
+            var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2;
+            var loser = winner == game.Player1 ? game.Player2 : game.Player1;
 
-            // Update player stats asynchronously
+            // Feature-mlacky
+            _ = SaveMatchToDb(winner.Name, winner, loser);
+            _ = SaveMatchToDb(winner.Name, loser, winner);
+            _ = SaveHistoryToDb(winner.Name, winner, loser);
+
+            // Develop
             _ = UpdatePlayerStatsAsync(winner, loser);
 
-            var player1Id = game.Player1.ConnectionId;
-            var player2Id = game.Player2.ConnectionId;
-            var gameId = game.Id;
+            _ = _hubContext.Clients.Client(game.Player1.ConnectionId)
+                .SendAsync("GameEnded", winner.Name);
+            _ = _hubContext.Clients.Client(game.Player2.ConnectionId)
+                .SendAsync("GameEnded", winner.Name);
 
-            // Notify players
-            _ = _hubContext.Clients.Client(player1Id).SendAsync("GameEnded", winner.Name);
-            _ = _hubContext.Clients.Client(player2Id).SendAsync("GameEnded", winner.Name);
-
-            _playerGameMap.TryRemove(player1Id, out _);
-            _playerGameMap.TryRemove(player2Id, out _);
-            _games.TryRemove(gameId, out _);
-            _pausedGameTimeouts.TryRemove(gameId, out _);
-
-            // Fire-and-forget Redis cleanup
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _gameStateRepository.RemoveGameAsync(gameId);
-                    await _gameStateRepository.RemovePlayerMappingAsync(player1Id);
-                    await _gameStateRepository.RemovePlayerMappingAsync(player2Id);
-                    await _gameStateRepository.RemoveGameTokensAsync(gameId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to clean up Redis after game {GameId} finished", gameId);
-                }
-            });
+            _games.TryRemove(game.Id, out _);
+            _pausedGameTimeouts.TryRemove(game.Id, out _);
         }
     }
+
 
     private async Task UpdatePlayerStatsAsync(Player winner, Player loser)
     {
@@ -652,5 +640,45 @@ public class GameManager : IHostedService, IDisposable
             _ = _hubContext.Clients.Client(game.Player1.ConnectionId).SendAsync("GameStateUpdated", stateDto);
         if (game.Player2 != null)
             _ = _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
+    }
+
+    private async Task SaveMatchToDb(string winnerName,Player p1,Player p2)
+    {
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            
+            var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
+            var playerServcice=scope.ServiceProvider.GetRequiredService<IPlayerService>();
+
+            var t1= playerServcice.GetByUsernameAsync(p1.Name);
+            var t2= playerServcice.GetByUsernameAsync(p2.Name);
+            
+            await Task.WhenAll(t1, t2);
+
+            var player1 = t1.Result;
+            var player2 = t2.Result;
+            
+            if (player1 == null || player2 == null)
+            {
+                Console.WriteLine($"GRESKA: Neki od igraca nije nadjen u bazi! {p1.Name} ili {p2.Name}");
+                return; 
+            }
+            string score = (p1.Name == winnerName) ? "Win" : "Loss";
+
+            string result = $"{p1.Score}-{p2.Score}";
+
+            await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,p2.Name,score,result);
+        }
+    }
+
+    private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2)
+    {
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
+            string result = $"{p1.Score}-{p2.Score}";
+
+            await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow,p1.Name,p2.Name,winnerName,result);
+        }
     }
 }

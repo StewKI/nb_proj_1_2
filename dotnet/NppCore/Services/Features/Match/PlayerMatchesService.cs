@@ -1,0 +1,85 @@
+using NppCore.Models;
+using NppCore.Services.Persistence.Cassandra;
+
+namespace NppCore.Services.Features.Match;
+
+public class PlayerMatchesService : IPlayerMatchesService
+{
+    private readonly ICassandraService _cassandra;
+
+    public PlayerMatchesService(ICassandraService cassandra)
+    {
+        _cassandra = cassandra;
+    }
+
+    public async Task<PlayerMatches> CreateAsync(Guid playerId, Guid opponentId, string year, DateTimeOffset mathc_time, string opponentUsername, string score, string result)
+    {
+        var playerMatches = new PlayerMatches
+        {
+            PlayerId = playerId,
+            OpponentId = opponentId,
+            Year = year,
+            Result = result,
+            Score = score,
+            Match_time = mathc_time,
+            OpponentUsername = opponentUsername,
+        };
+
+        await _cassandra.ExecuteAsync(
+            "INSERT INTO player_matches (player_id,year,match_time,opponent_id,opponent_username,result,score) VALUES (?, ?, ?, ?, ?,?,?)",
+            playerMatches.PlayerId,
+            playerMatches.Year,
+            playerMatches.Match_time,
+            playerMatches.OpponentId,
+            playerMatches.OpponentUsername,
+            playerMatches.Result,
+            playerMatches.Score
+
+        );
+
+        return playerMatches;
+    }
+
+    public async Task<IEnumerable<PlayerMatches>> GetByYearAsync(string year, Guid playerId, int page, int limit)
+    {
+        var query = "SELECT * FROM player_matches WHERE year = ? AND player_id = ?";
+        var result = await _cassandra.QueryAsync<PlayerMatches>(query, year, playerId);
+
+        var pagedResult = result.Skip((page - 1) * limit).Take(limit).ToList();
+        return pagedResult;
+    }
+
+    public async Task<MatchHistory> CreateHistoryAsync(DateTimeOffset mt, String p1, String p2, String score, string result)
+    {
+        string bucket=mt.ToString("yyyy-MM");
+        
+        var query = "INSERT INTO recent_matches (bucket,match_time,match_id,player1_username,player2_username,score,result) VALUES (?,?,?,?,?,?,?)";
+        var match = new MatchHistory
+        {
+            Bucket = bucket,
+            Match_time = mt,
+            MatchId = Guid.NewGuid(),
+            player1Username = p1,
+            player2Username = p2,
+            Score = score,
+            Result = result
+        };
+        await _cassandra.ExecuteAsync(query, match.Bucket, match.Match_time, match.MatchId, match.player1Username, match.player2Username, match.Score, match.Result);
+
+        return match;
+
+    }
+
+    public async Task<IEnumerable<MatchHistory>> GetHistoryAsync(String bucket, int page, int limit)
+    {
+        var query = "SELECT * FROM recent_matches WHERE bucket=?";
+        var res = await _cassandra.QueryAsync<MatchHistory>(query, bucket);
+        var result = res.Skip((page - 1) * limit)
+                        .Take(limit).ToList();
+
+        return result;
+    }
+
+
+
+}
