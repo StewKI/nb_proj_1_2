@@ -644,7 +644,7 @@ public class GameManager : IHostedService, IDisposable
 
     private async Task SaveMatchToDb(string winnerName,Player p1,Player p2)
     {
-        using (var scope = _scopeFactory.CreateScope())
+        using (var scope = _serviceScopeFactory.CreateScope())
         {
             
             var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
@@ -673,7 +673,7 @@ public class GameManager : IHostedService, IDisposable
 
     private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2)
     {
-        using (var scope = _scopeFactory.CreateScope())
+        using (var scope = _serviceScopeFactory.CreateScope())
         {
             var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
             string result = $"{p1.Score}-{p2.Score}";
