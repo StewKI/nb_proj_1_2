@@ -62,13 +62,16 @@ builder.Services.AddAuthorization();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<GameManager>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<GameManager>());
+builder.Services.AddHostedService<LeaderboardSnapshotService>();
 
 builder.Services.AddCassandraService(builder.Configuration);
 builder.Services.AddRedisService(builder.Configuration);
+builder.Services.AddGameStateRepository();
 builder.Services.AddPlayerService();
 builder.Services.AddAuthService();
 builder.Services.AddPlayerMatchService();
 
+builder.Services.AddLeaderboardService();
 
 builder.Services.AddCors(options =>
 {

@@ -3,11 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using NppCore.Configuration;
 using NppCore.Services.Features.Auth;
 using NppCore.Services.Features.Match;
+using NppCore.Services.Features.Leaderboard;
 using NppCore.Services.Features.Player;
 using NppCore.Services.Persistence.Cassandra;
 using NppCore.Services.Persistence.Redis;
-
-
 
 namespace NppCore.Extensions;
 
@@ -30,6 +29,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddPlayerService(this IServiceCollection services)
     {
         services.AddScoped<IPlayerService, PlayerService>();
+        services.AddScoped<IPlayerStatsService, PlayerStatsService>();
         return services;
     }
 
@@ -40,10 +40,23 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-   public static IServiceCollection AddPlayerMatchService(this IServiceCollection services)
+    // feature-mlacky
+    public static IServiceCollection AddPlayerMatchService(this IServiceCollection services)
     {
         services.AddScoped<IPlayerMatchesService, PlayerMatchesService>();
         return services;
     }
-   
+
+    // develop
+    public static IServiceCollection AddLeaderboardService(this IServiceCollection services)
+    {
+        services.AddScoped<ILeaderboardService, LeaderboardService>();
+        return services;
+    }
+
+    public static IServiceCollection AddGameStateRepository(this IServiceCollection services)
+    {
+        services.AddSingleton<IGameStateRepository, RedisGameStateRepository>();
+        return services;
+    }
 }

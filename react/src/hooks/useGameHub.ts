@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
+import { saveReconnectToken, getReconnectToken, clearReconnectToken } from '../utils/reconnectStorage';
 
 export interface Player {
   name: string;
@@ -21,7 +22,13 @@ export interface LobbyGame {
   hostName: string;
 }
 
-export type AppState = 'lobby' | 'waiting' | 'playing' | 'ended';
+export interface ReconnectTokenData {
+  token: string;
+  gameId: string;
+  playerNumber: number;
+}
+
+export type AppState = 'lobby' | 'waiting' | 'playing' | 'paused' | 'reconnecting' | 'ended';
 
 export function useGameHub() {
   const [, setConnection] = useState<signalR.HubConnection | null>(null);
@@ -32,11 +39,16 @@ export function useGameHub() {
   const [winner, setWinner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPlayer1, setIsPlayer1] = useState(true);
+  const [pauseMessage, setPauseMessage] = useState<string | null>(null);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
+    const token = localStorage.getItem('jwt_token');
+    
     const newConnection = new signalR.HubConnectionBuilder()
-      .withUrl('/gamehub')
+      .withUrl('/gamehub', {
+        accessTokenFactory: () => token || ''
+      })
       .withAutomaticReconnect()
       .build();
 
@@ -47,6 +59,7 @@ export function useGameHub() {
     newConnection.on('GameStarted', (state: GameState) => {
       setGameState(state);
       setAppState('playing');
+      setPauseMessage(null);
     });
 
     newConnection.on('GameStateUpdated', (state: GameState) => {
@@ -56,16 +69,88 @@ export function useGameHub() {
     newConnection.on('GameEnded', (winnerName: string) => {
       setWinner(winnerName);
       setAppState('ended');
+      clearReconnectToken();
     });
 
     newConnection.on('JoinFailed', (message: string) => {
       setError(message);
     });
 
+    // New reconnection-related events
+    newConnection.on('ReconnectToken', (data: ReconnectTokenData) => {
+      saveReconnectToken(data);
+    });
+
+    newConnection.on('PendingGameFound', (data: { gameId: string; playerNumber: number; playerName: string }) => {
+      // A pending game was found, attempt to reconnect
+      setAppState('reconnecting');
+      setIsPlayer1(data.playerNumber === 1);
+      const token = getReconnectToken();
+      if (token) {
+        newConnection.invoke('Reconnect', token.token);
+      }
+    });
+
+    newConnection.on('NoPendingGame', () => {
+      // No pending game, clear the stored token and stay in lobby
+      clearReconnectToken();
+      setAppState('lobby');
+    });
+
+    newConnection.on('Reconnected', (data: {
+      success: boolean;
+      gameId: string;
+      playerNumber: number;
+      playerName: string;
+      gameState: GameState;
+    }) => {
+      if (data.success) {
+        setGameState(data.gameState);
+        setIsPlayer1(data.playerNumber === 1);
+
+        if (data.gameState.state === 'Paused') {
+          setAppState('paused');
+          setPauseMessage('Waiting for opponent to reconnect...');
+        } else {
+          setAppState('playing');
+          setPauseMessage(null);
+        }
+      }
+    });
+
+    newConnection.on('ReconnectFailed', (message: string) => {
+      clearReconnectToken();
+      setAppState('lobby');
+      setError(message);
+    });
+
+    newConnection.on('OpponentDisconnected', () => {
+      setPauseMessage('Opponent disconnected. Waiting for them to reconnect...');
+    });
+
+    newConnection.on('GamePaused', () => {
+      setAppState('paused');
+      setPauseMessage('Game paused. Waiting for opponent to reconnect...');
+    });
+
+    newConnection.on('GameResumed', (state: GameState) => {
+      setGameState(state);
+      setAppState('playing');
+      setPauseMessage(null);
+    });
+
     newConnection.start()
       .then(() => {
         setConnected(true);
-        newConnection.invoke('GetLobby');
+
+        // Check for pending game on connection
+        const storedToken = getReconnectToken();
+        if (storedToken) {
+          setAppState('reconnecting');
+          newConnection.invoke('CheckPendingGame', storedToken.token);
+        } else {
+          newConnection.invoke('GetLobby');
+        }
       })
       .catch(err => console.error('Connection failed:', err));
 
@@ -77,7 +162,7 @@ export function useGameHub() {
     };
   }, []);
 
-  const createGame = useCallback(async (playerName: string) => {
+  const createGame = useCallback(async (playerId: string, playerName: string) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       setIsPlayer1(true);
       await connectionRef.current.invoke('CreateGame', playerName);
@@ -85,7 +170,7 @@ export function useGameHub() {
     }
   }, []);
 
-  const joinGame = useCallback(async (gameId: string, playerName: string) => {
+  const joinGame = useCallback(async (gameId: string, playerId: string, playerName: string) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       setIsPlayer1(false);
       await connectionRef.current.invoke('JoinGame', gameId, playerName);
@@ -109,8 +194,20 @@ export function useGameHub() {
     setGameState(null);
     setWinner(null);
     setError(null);
+    setPauseMessage(null);
+    clearReconnectToken();
     refreshLobby();
   }, [refreshLobby]);
+
+  const attemptReconnect = useCallback(async () => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
+      const storedToken = getReconnectToken();
+      if (storedToken) {
+        setAppState('reconnecting');
+        await connectionRef.current.invoke('Reconnect', storedToken.token);
+      }
+    }
+  }, []);
 
   return {
     connected,
@@ -120,10 +217,12 @@ export function useGameHub() {
     winner,
     error,
     isPlayer1,
+    pauseMessage,
     createGame,
     joinGame,
     movePaddle,
     refreshLobby,
     returnToLobby,
+    attemptReconnect,
   };
 }

@@ -14,7 +14,10 @@ export async function login(request: LoginRequest): Promise<User> {
     throw new Error(error || 'Login failed');
   }
 
-  return response.json();
+  const data = await response.json();
+  // Sačuvaj token u localStorage
+  localStorage.setItem('jwt_token', data.token);
+  return data;
 }
 
 export async function register(request: RegisterRequest): Promise<User> {
@@ -29,5 +32,8 @@ export async function register(request: RegisterRequest): Promise<User> {
     throw new Error(error || 'Registration failed');
   }
 
-  return response.json();
+  const data = await response.json();
+  // Sačuvaj token u localStorage
+  localStorage.setItem('jwt_token', data.token);
+  return data;
 }

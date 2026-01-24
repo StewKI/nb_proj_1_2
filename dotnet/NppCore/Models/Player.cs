@@ -16,8 +16,24 @@ public class PlayerByEmail
     public Guid PlayerId { get; set; }
 }
 
+// feature-mlacky
 public class PlayerByUsername
 {
     public string Username { get; set; } = string.Empty;
     public Guid PlayerId { get; set; }
+}
+
+// develop
+public class PlayerStatsSnapshot
+{
+    public Guid PlayerId { get; set; }
+    public long TotalPoints { get; set; }
+    public long GamesWon { get; set; }
+    public long GamesLost { get; set; }
+}
+
+public class PlayerInfo
+{
+    public Guid PlayerId { get; set; }
+    public string Username { get; set; } = string.Empty;
 }
