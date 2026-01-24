@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NppCore.Constants;
@@ -130,8 +131,6 @@ public class AdminController : ControllerBase
         }
     }
 }
-
-using System.ComponentModel.DataAnnotations;
 
 public record AddPointsRequest(
     [Required]

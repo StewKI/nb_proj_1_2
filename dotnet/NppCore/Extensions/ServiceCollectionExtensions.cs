@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NppCore.Configuration;
 using NppCore.Services.Features.Auth;
+using NppCore.Services.Features.Match;
 using NppCore.Services.Features.Leaderboard;
 using NppCore.Services.Features.Player;
 using NppCore.Services.Persistence.Cassandra;
@@ -39,6 +40,14 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    // feature-mlacky
+    public static IServiceCollection AddPlayerMatchService(this IServiceCollection services)
+    {
+        services.AddScoped<IPlayerMatchesService, PlayerMatchesService>();
+        return services;
+    }
+
+    // develop
     public static IServiceCollection AddLeaderboardService(this IServiceCollection services)
     {
         services.AddScoped<ILeaderboardService, LeaderboardService>();
