@@ -11,14 +11,14 @@ using NppCore.Services.Features.Player;
 
 namespace NppApi.Services;
 
-public class GameManager : IHostedService, IDisposable
+public class GameManagerService : IHostedService, IDisposable
 {
     private readonly ConcurrentDictionary<string, Game> _games = new();
     private readonly ConcurrentDictionary<string, string> _playerGameMap = new();
     private readonly ConcurrentDictionary<string, DateTime> _pausedGameTimeouts = new();
     private readonly IHubContext<GameHub> _hubContext;
     private readonly IGameStateRepository _gameStateRepository;
-    private readonly ILogger<GameManager> _logger;
+    private readonly ILogger<GameManagerService> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private Timer? _gameLoopTimer;
     private Timer? _timeoutCheckTimer;
@@ -28,10 +28,10 @@ public class GameManager : IHostedService, IDisposable
     private static readonly TimeSpan ReconnectTokenExpiry = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TimeoutCheckInterval = TimeSpan.FromSeconds(30);
 
-    public GameManager(
+    public GameManagerService(
         IHubContext<GameHub> hubContext,
         IGameStateRepository gameStateRepository,
-        ILogger<GameManager> logger,
+        ILogger<GameManagerService> logger,
         IServiceScopeFactory serviceScopeFactory)
     {
         _hubContext = hubContext;

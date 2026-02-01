@@ -87,7 +87,7 @@ public class LeaderboardService : ILeaderboardService
     public async Task<PlayerStreakDto?> GetPlayerStreakAsync(Guid playerId)
     {
         var cql = @"
-            SELECT player_id, username, current_streak, longest_streak, last_result 
+            SELECT player_id, current_streak, longest_streak, last_result 
             FROM player_current_streak 
             WHERE player_id = ?";
 
@@ -98,7 +98,6 @@ public class LeaderboardService : ILeaderboardService
 
         return new PlayerStreakDto(
             streak.PlayerId,
-            streak.Username,
             streak.CurrentStreak,
             streak.LongestStreak,
             streak.LastResult
@@ -109,7 +108,7 @@ public class LeaderboardService : ILeaderboardService
     {
         // Prvo pokušavamo da pročitamo trenutni streak
         var currentStreak = await _cassandra.QueryFirstOrDefaultAsync<PlayerStreak>(
-            "SELECT player_id, username, current_streak, longest_streak, last_result FROM player_current_streak WHERE player_id = ?",
+            "SELECT player_id, current_streak, longest_streak, last_result FROM player_current_streak WHERE player_id = ?",
             playerId
         );
 
@@ -141,10 +140,10 @@ public class LeaderboardService : ILeaderboardService
 
         // INSERT će prepisati postojeći red jer je player_id PRIMARY KEY
         var cql = @"
-            INSERT INTO player_current_streak (player_id, username, current_streak, longest_streak, last_result) 
-            VALUES (?, ?, ?, ?, ?)";
+            INSERT INTO player_current_streak (player_id, current_streak, longest_streak, last_result) 
+            VALUES (?, ?, ?, ?)";
 
-        await _cassandra.ExecuteAsync(cql, playerId, username, newCurrentStreak, newLongestStreak, newLastResult);
+        await _cassandra.ExecuteAsync(cql, playerId, newCurrentStreak, newLongestStreak, newLastResult);
 
         // Ako je ažuriran longest_streak, ažuriraj i streak leaderboard
         if (currentStreak == null || newLongestStreak > currentStreak.LongestStreak)

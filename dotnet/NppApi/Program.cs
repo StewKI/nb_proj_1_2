@@ -60,8 +60,8 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<GameManager>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<GameManager>());
+builder.Services.AddSingleton<GameManagerService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<GameManagerService>());
 builder.Services.AddHostedService<LeaderboardSnapshotService>();
 
 builder.Services.AddCassandraService(builder.Configuration);

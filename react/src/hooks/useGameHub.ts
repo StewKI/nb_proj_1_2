@@ -43,11 +43,9 @@ export function useGameHub() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('jwt_token');
-    
     const newConnection = new signalR.HubConnectionBuilder()
       .withUrl('/gamehub', {
-        accessTokenFactory: () => token || ''
+        accessTokenFactory: () => localStorage.getItem('jwt_token') || ''
       })
       .withAutomaticReconnect()
       .build();

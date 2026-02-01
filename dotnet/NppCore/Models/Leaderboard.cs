@@ -33,7 +33,6 @@ public class WinsLeaderboardEntry
 public class PlayerStreak
 {
     public Guid PlayerId { get; set; }
-    public string Username { get; set; } = string.Empty;
     public int CurrentStreak { get; set; }
     public int LongestStreak { get; set; }
     public string LastResult { get; set; } = string.Empty; // 'WIN' ili 'LOSS'
@@ -69,7 +68,6 @@ public record LeaderboardEntryDto(
 /// </summary>
 public record PlayerStreakDto(
     Guid PlayerId,
-    string Username,
     int CurrentStreak,
     int LongestStreak,
     string LastResult
