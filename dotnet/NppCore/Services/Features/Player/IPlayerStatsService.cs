@@ -1,9 +1,16 @@
+using NppCore.Models;
+
 namespace NppCore.Services.Features.Player;
 
 public interface IPlayerStatsService
 {
     /// <summary>
-    /// Ažurira statistiku nakon meča
+    /// Gets player stats by player ID
+    /// </summary>
+    Task<PlayerStatsSnapshot?> GetStatsAsync(Guid playerId);
+
+    /// <summary>
+    /// Updates stats after a match
     /// </summary>
     Task UpdateStatsAfterMatchAsync(
         Guid winnerId,

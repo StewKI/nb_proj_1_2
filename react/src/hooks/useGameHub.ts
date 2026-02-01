@@ -30,7 +30,7 @@ export interface ReconnectTokenData {
 
 export type AppState = 'lobby' | 'waiting' | 'playing' | 'paused' | 'reconnecting' | 'ended';
 
-export function useGameHub() {
+export function useGameHub(authToken: string | null) {
   const [, setConnection] = useState<signalR.HubConnection | null>(null);
   const [connected, setConnected] = useState(false);
   const [lobby, setLobby] = useState<LobbyGame[]>([]);
@@ -43,9 +43,15 @@ export function useGameHub() {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
+    // Don't create connection without a valid token
+    if (!authToken) {
+      setConnected(false);
+      return;
+    }
+
     const newConnection = new signalR.HubConnectionBuilder()
       .withUrl('/gamehub', {
-        accessTokenFactory: () => localStorage.getItem('jwt_token') || ''
+        accessTokenFactory: () => authToken
       })
       .withAutomaticReconnect()
       .build();
@@ -158,7 +164,7 @@ export function useGameHub() {
     return () => {
       newConnection.stop();
     };
-  }, []);
+  }, [authToken]);
 
   const createGame = useCallback(async (playerId: string, playerName: string) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {

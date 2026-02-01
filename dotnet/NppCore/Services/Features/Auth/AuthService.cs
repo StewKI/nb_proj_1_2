@@ -36,7 +36,7 @@ public class AuthService : IAuthService
             player.PlayerId
         );
 
-        // feature-mlacky – indeks po username-u (BITNO)
+        // Index by username for match lookups
         await _cassandra.ExecuteAsync(
             "INSERT INTO players_by_username (username, player_id) VALUES (?, ?)",
             username,

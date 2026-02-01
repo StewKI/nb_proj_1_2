@@ -1,3 +1,4 @@
+using NppCore.Constants;
 using NppCore.Models;
 using NppCore.Services.Persistence.Cassandra;
 
@@ -106,7 +107,7 @@ public class LeaderboardService : ILeaderboardService
 
     public async Task UpdatePlayerStreakAsync(Guid playerId, string username, bool won)
     {
-        // Prvo pokušavamo da pročitamo trenutni streak
+        // First try to read current streak
         var currentStreak = await _cassandra.QueryFirstOrDefaultAsync<PlayerStreak>(
             "SELECT player_id, current_streak, longest_streak, last_result FROM player_current_streak WHERE player_id = ?",
             playerId
@@ -114,11 +115,11 @@ public class LeaderboardService : ILeaderboardService
 
         int newCurrentStreak;
         int newLongestStreak;
-        string newLastResult = won ? "WIN" : "LOSS";
+        string newLastResult = won ? GameConstants.ResultWin : GameConstants.ResultLoss;
 
         if (currentStreak == null)
         {
-            // Prvi meč ovog igrača
+            // First match for this player
             newCurrentStreak = won ? 1 : 0;
             newLongestStreak = won ? 1 : 0;
         }
@@ -126,29 +127,29 @@ public class LeaderboardService : ILeaderboardService
         {
             if (won)
             {
-                // Pobeda - nastavlja se streak
+                // Win - streak continues
                 newCurrentStreak = currentStreak.CurrentStreak + 1;
                 newLongestStreak = Math.Max(newCurrentStreak, currentStreak.LongestStreak);
             }
             else
             {
-                // Poraz - streak se resetuje
+                // Loss - streak resets
                 newCurrentStreak = 0;
                 newLongestStreak = currentStreak.LongestStreak;
             }
         }
 
-        // INSERT će prepisati postojeći red jer je player_id PRIMARY KEY
+        // INSERT will overwrite existing row since player_id is PRIMARY KEY
         var cql = @"
             INSERT INTO player_current_streak (player_id, current_streak, longest_streak, last_result) 
             VALUES (?, ?, ?, ?)";
 
         await _cassandra.ExecuteAsync(cql, playerId, newCurrentStreak, newLongestStreak, newLastResult);
 
-        // Ako je ažuriran longest_streak, ažuriraj i streak leaderboard
+        // If longest_streak was updated, update streak leaderboard as well
         if (currentStreak == null || newLongestStreak > currentStreak.LongestStreak)
         {
-            await AddOrUpdateStreakLeaderboardAsync("global_all_time", playerId, username, newLongestStreak);
+            await AddOrUpdateStreakLeaderboardAsync(GameConstants.LeaderboardCategoryGlobalAllTime, playerId, username, newLongestStreak);
         }
     }
 

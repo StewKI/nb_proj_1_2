@@ -93,19 +93,11 @@ public class CassandraService : ICassandraService, IDisposable
             return existing;
 
         var prepared = await Session.PrepareAsync(cql);
-        
-        // Prevent memory leak: evict oldest statement if cache is full
-        if (_preparedStatements.Count >= GameConstants.MaxCachedPreparedStatements)
-        {
-            var oldestKey = _preparedStatements.Keys.FirstOrDefault();
-            if (oldestKey != null)
-            {
-                _preparedStatements.TryRemove(oldestKey, out _);
-            }
-        }
-        
-        _preparedStatements.TryAdd(cql, prepared);
-        return prepared;
+
+        // Use GetOrAdd to handle race conditions - if another thread added it, use theirs
+        // Note: Removed flawed eviction logic. The cache will grow but prepared statements
+        // are lightweight. If this becomes an issue, implement proper LRU cache.
+        return _preparedStatements.GetOrAdd(cql, prepared);
     }
 
     private static IEnumerable<T> MapResults<T>(RowSet resultSet) where T : new()
