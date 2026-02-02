@@ -3,6 +3,7 @@ public class PlayerMatches
     public Guid PlayerId { get; set; }
     public string Year { get; set; }=string.Empty;
     public DateTimeOffset Match_time { get; set; }
+    public Guid MatchId { get; set; }
     public Guid OpponentId { get; set; }
     public string OpponentUsername { get; set; }=string.Empty ;
     public string Score { get; set; }=string.Empty;
@@ -12,7 +13,7 @@ public class PlayerMatches
 
 public class MatchHistory
 {
-    public string Bucket { get; set; }=string.Empty;
+    public string Period { get; set; }=string.Empty;
     public DateTimeOffset Match_time { get; set; }
     public Guid MatchId { get; set; }
     public String player1Username { get; set; }=string.Empty;

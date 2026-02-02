@@ -591,6 +591,14 @@ public class GameManagerService : IHostedService, IDisposable
 
             var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2;
             var loser = winner == game.Player1 ? game.Player2 : game.Player1;
+            Guid matchId=Guid.NewGuid();
+            // Feature-mlacky
+            _ = SaveHistoryToDb(winner.Name, winner, loser,matchId);
+            _ = SaveMatchToDb(winner.Name, winner, loser, matchId);
+            _ = SaveMatchToDb(winner.Name, loser, winner,matchId);
+
+            // Develop
+            _ = UpdatePlayerStatsAsync(winner, loser);
 
             // Save match records for both players (winner's perspective and loser's perspective)
             RunBackgroundTask(() => SaveMatchToDb(winner.Name, winner, loser), "SaveMatchForWinner");
@@ -665,7 +673,7 @@ public class GameManagerService : IHostedService, IDisposable
             _ = _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
     }
 
-    private async Task SaveMatchToDb(string winnerName, Player p1, Player p2)
+    private async Task SaveMatchToDb(string winnerName,Player p1,Player p2,Guid matchId)
     {
         using var scope = _serviceScopeFactory.CreateScope();
         var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
@@ -678,6 +686,7 @@ public class GameManagerService : IHostedService, IDisposable
         var player1 = results[0];
         var player2 = results[1];
 
+        await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,matchId,p2.Name,score,result);
         if (player1 == null || player2 == null)
         {
             _logger.LogError("Player not found in database: {Player1} or {Player2}", p1.Name, p2.Name);
@@ -690,12 +699,13 @@ public class GameManagerService : IHostedService, IDisposable
         await matchService.CreateAsync(player1.PlayerId, player2.PlayerId, DateTime.UtcNow.Year.ToString(), DateTime.UtcNow, p2.Name, score, result);
     }
 
-    private async Task SaveHistoryToDb(string winnerName, Player p1, Player p2)
+    private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2,Guid matchId)
     {
         using var scope = _serviceScopeFactory.CreateScope();
         var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
         string result = $"{p1.Score}-{p2.Score}";
 
-        await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow, p1.Name, p2.Name, winnerName, result);
+        await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow,p1.Name,p2.Name,winnerName,result,matchId);
+        
     }
 }
