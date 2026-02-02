@@ -10,14 +10,14 @@ public static class GameConstants
     public const int BallSize = 10;
     public const int InitialBallSpeed = 5;
     public const int MaxBallSpeed = 15;
-    public const double BallSpeedMultiplier = 1.05; // Povećanje brzine nakon svake kolizije sa palicom
-    public const int MaxBallVerticalSpeed = 8; // Max vertikalna brzina lopte
+    public const double BallSpeedMultiplier = 1.05; // Speed increase after each paddle collision
+    public const int MaxBallVerticalSpeed = 8; // Max vertical ball speed
     public const int BallSpeedIncrement = 1;
     public const int PaddleSpeed = 5;
     
     // Game Rules
     public const int WinningScore = 5;
-    public const int PointsPerScore = 10; // Poeni koje igrač dobija za svaki osvojeni poen
+    public const int PointsPerScore = 10; // Points player earns for each scored point
     
     // Timing (milliseconds)
     public const int GameTickInterval = 16; // ~60 FPS
@@ -30,6 +30,10 @@ public static class GameConstants
     public const string LeaderboardPeriodTypeMonthly = "MONTHLY";
     public const string LeaderboardPeriodTypeYearly = "YEARLY";
     public const string LeaderboardPeriodTypeAllTime = "ALL_TIME";
+
+    // Match Results
+    public const string ResultWin = "WIN";
+    public const string ResultLoss = "LOSS";
     
     // Player Stats
     public const int MaxUsernameLength = 50;

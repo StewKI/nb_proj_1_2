@@ -5,6 +5,7 @@ import * as authApi from '../services/authApi';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  authError: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : null;
   });
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -29,22 +31,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const login = async (email: string, password: string) => {
-    const loggedInUser = await authApi.login({ email, password });
-    setUser(loggedInUser);
+    try {
+      setAuthError(null);
+      const loggedInUser = await authApi.login({ email, password });
+      setUser(loggedInUser);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed';
+      setAuthError(message);
+      throw error;
+    }
   };
 
   const register = async (username: string, email: string, password: string) => {
-    const registeredUser = await authApi.register({ username, email, password });
-    setUser(registeredUser);
+    try {
+      setAuthError(null);
+      const registeredUser = await authApi.register({ username, email, password });
+      setUser(registeredUser);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Registration failed';
+      setAuthError(message);
+      throw error;
+    }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('jwt_token'); // Obriši token
+    localStorage.removeItem('jwt_token'); // Delete token
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, authError, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

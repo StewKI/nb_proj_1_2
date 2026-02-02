@@ -19,7 +19,15 @@ builder.Services.AddControllers()
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey not configured");
+var secretKey = jwtSettings["SecretKey"];
+if (string.IsNullOrEmpty(secretKey))
+{
+    secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+}
+if (string.IsNullOrEmpty(secretKey))
+{
+    throw new InvalidOperationException("JWT SecretKey not configured. Set Jwt:SecretKey in config or JWT_SECRET_KEY environment variable.");
+}
 
 builder.Services.AddAuthentication(options =>
 {
@@ -39,7 +47,7 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
 
-    // Za SignalR - čitaj token iz query string-a
+    // For SignalR - read token from query string
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -60,8 +68,8 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddSignalR();
-builder.Services.AddSingleton<GameManager>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<GameManager>());
+builder.Services.AddSingleton<GameManagerService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<GameManagerService>());
 builder.Services.AddHostedService<LeaderboardSnapshotService>();
 
 builder.Services.AddCassandraService(builder.Configuration);

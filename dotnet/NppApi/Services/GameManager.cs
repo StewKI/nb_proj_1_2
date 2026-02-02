@@ -11,14 +11,14 @@ using NppCore.Services.Features.Player;
 
 namespace NppApi.Services;
 
-public class GameManager : IHostedService, IDisposable
+public class GameManagerService : IHostedService, IDisposable
 {
     private readonly ConcurrentDictionary<string, Game> _games = new();
     private readonly ConcurrentDictionary<string, string> _playerGameMap = new();
     private readonly ConcurrentDictionary<string, DateTime> _pausedGameTimeouts = new();
     private readonly IHubContext<GameHub> _hubContext;
     private readonly IGameStateRepository _gameStateRepository;
-    private readonly ILogger<GameManager> _logger;
+    private readonly ILogger<GameManagerService> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private Timer? _gameLoopTimer;
     private Timer? _timeoutCheckTimer;
@@ -28,10 +28,10 @@ public class GameManager : IHostedService, IDisposable
     private static readonly TimeSpan ReconnectTokenExpiry = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan TimeoutCheckInterval = TimeSpan.FromSeconds(30);
 
-    public GameManager(
+    public GameManagerService(
         IHubContext<GameHub> hubContext,
         IGameStateRepository gameStateRepository,
-        ILogger<GameManager> logger,
+        ILogger<GameManagerService> logger,
         IServiceScopeFactory serviceScopeFactory)
     {
         _hubContext = hubContext;
@@ -309,19 +309,12 @@ public class GameManager : IHostedService, IDisposable
         {
             _games.TryRemove(gameId, out _);
 
-            _ = Task.Run(async () =>
+            RunBackgroundTask(async () =>
             {
-                try
-                {
-                    await _gameStateRepository.RemoveGameAsync(gameId);
-                    await _gameStateRepository.RemovePlayerMappingAsync(connectionId);
-                    await _gameStateRepository.RemoveGameTokensAsync(gameId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to clean up waiting game {GameId}", gameId);
-                }
-            });
+                await _gameStateRepository.RemoveGameAsync(gameId);
+                await _gameStateRepository.RemovePlayerMappingAsync(connectionId);
+                await _gameStateRepository.RemoveGameTokensAsync(gameId);
+            }, $"CleanupWaitingGame-{gameId}");
 
             await _hubContext.Clients.All.SendAsync("LobbyUpdated", GetOpenGames());
             return;
@@ -433,6 +426,10 @@ public class GameManager : IHostedService, IDisposable
         if (!_games.TryGetValue(gameId, out var game))
             return;
 
+        // Validate input
+        if (double.IsNaN(y) || double.IsInfinity(y))
+            return;
+
         y = Math.Clamp(y, 0, Game.CanvasHeight - Game.PaddleHeight);
 
         if (game.Player1?.ConnectionId == connectionId)
@@ -490,6 +487,8 @@ public class GameManager : IHostedService, IDisposable
 
     private async void GameLoop(object? state)
     {
+        try
+        {
         _frameCount++;
         var shouldSync = _frameCount % SyncInterval == 0;
 
@@ -516,6 +515,11 @@ public class GameManager : IHostedService, IDisposable
                     }
                 });
             }
+        }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Critical error in game loop");
         }
     }
 
@@ -558,14 +562,20 @@ public class GameManager : IHostedService, IDisposable
         // Score
         if (game.Ball.X < 0)
         {
-            game.Player2!.Score++;
-            CheckWin(game);
+            if (game.Player2 != null)
+            {
+                game.Player2.Score++;
+                CheckWin(game);
+            }
             InitializeBall(game);
         }
         else if (game.Ball.X > Game.CanvasWidth)
         {
-            game.Player1!.Score++;
-            CheckWin(game);
+            if (game.Player1 != null)
+            {
+                game.Player1.Score++;
+                CheckWin(game);
+            }
             InitializeBall(game);
         }
     }
@@ -589,6 +599,12 @@ public class GameManager : IHostedService, IDisposable
 
             // Develop
             _ = UpdatePlayerStatsAsync(winner, loser);
+
+            // Save match records for both players (winner's perspective and loser's perspective)
+            RunBackgroundTask(() => SaveMatchToDb(winner.Name, winner, loser), "SaveMatchForWinner");
+            RunBackgroundTask(() => SaveMatchToDb(winner.Name, loser, winner), "SaveMatchForLoser");
+            RunBackgroundTask(() => SaveHistoryToDb(winner.Name, winner, loser), "SaveHistory");
+            RunBackgroundTask(() => UpdatePlayerStatsAsync(winner, loser), "UpdateStats");
 
             _ = _hubContext.Clients.Client(game.Player1.ConnectionId)
                 .SendAsync("GameEnded", winner.Name);
@@ -623,6 +639,21 @@ public class GameManager : IHostedService, IDisposable
         }
     }
 
+    private void RunBackgroundTask(Func<Task> task, string operationName)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await task();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Background task failed: {Operation}", operationName);
+            }
+        });
+    }
+
     private void BroadcastGameState(Game game)
     {
         var stateDto = new GameStateDto
@@ -644,41 +675,37 @@ public class GameManager : IHostedService, IDisposable
 
     private async Task SaveMatchToDb(string winnerName,Player p1,Player p2,Guid matchId)
     {
-        using (var scope = _serviceScopeFactory.CreateScope())
+        using var scope = _serviceScopeFactory.CreateScope();
+        var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
+        var playerService = scope.ServiceProvider.GetRequiredService<IPlayerService>();
+
+        var t1 = playerService.GetByUsernameAsync(p1.Name);
+        var t2 = playerService.GetByUsernameAsync(p2.Name);
+
+        var results = await Task.WhenAll(t1, t2);
+        var player1 = results[0];
+        var player2 = results[1];
+
+        await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,matchId,p2.Name,score,result);
+        if (player1 == null || player2 == null)
         {
-            
-            var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
-            var playerServcice=scope.ServiceProvider.GetRequiredService<IPlayerService>();
-
-            var t1= playerServcice.GetByUsernameAsync(p1.Name);
-            var t2= playerServcice.GetByUsernameAsync(p2.Name);
-            
-            await Task.WhenAll(t1, t2);
-
-            var player1 = t1.Result;
-            var player2 = t2.Result;
-            
-            if (player1 == null || player2 == null)
-            {
-                Console.WriteLine($"GRESKA: Neki od igraca nije nadjen u bazi! {p1.Name} ili {p2.Name}");
-                return; 
-            }
-            string score = (p1.Name == winnerName) ? "Win" : "Loss";
-
-            string result = $"{p1.Score}-{p2.Score}";
-
-            await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,matchId,p2.Name,score,result);
+            _logger.LogError("Player not found in database: {Player1} or {Player2}", p1.Name, p2.Name);
+            return;
         }
+
+        string score = (p1.Name == winnerName) ? "Win" : "Loss";
+        string result = $"{p1.Score}-{p2.Score}";
+
+        await matchService.CreateAsync(player1.PlayerId, player2.PlayerId, DateTime.UtcNow.Year.ToString(), DateTime.UtcNow, p2.Name, score, result);
     }
 
     private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2,Guid matchId)
     {
-        using (var scope = _serviceScopeFactory.CreateScope())
-        {
-            var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
-            string result = $"{p1.Score}-{p2.Score}";
+        using var scope = _serviceScopeFactory.CreateScope();
+        var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
+        string result = $"{p1.Score}-{p2.Score}";
 
-            await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow,p1.Name,p2.Name,winnerName,result,matchId);
-        }
+        await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow,p1.Name,p2.Name,winnerName,result,matchId);
+        
     }
 }

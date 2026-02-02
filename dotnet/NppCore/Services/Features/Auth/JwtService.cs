@@ -43,7 +43,7 @@ public class JwtService : IJwtService
             issuer: issuer,
             audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(7), // Token važi 7 dana
+            expires: DateTime.UtcNow.AddDays(7), // Token valid for 7 days
             signingCredentials: credentials
         );
 
