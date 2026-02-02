@@ -613,6 +613,10 @@ public class GameManagerService : IHostedService, IDisposable
         if (game.Player1 == null || game.Player2 == null)
             return;
 
+        // Guard against multiple calls
+        if (game.State == GameState.Finished)
+            return;
+
         if (game.Player1.Score >= Game.WinScore || game.Player2.Score >= Game.WinScore)
         {
             game.State = GameState.Finished;
@@ -620,8 +624,6 @@ public class GameManagerService : IHostedService, IDisposable
             var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2;
             var loser = winner == game.Player1 ? game.Player2 : game.Player1;
             Guid matchId=Guid.NewGuid();
-
-            _ = UpdatePlayerStatsAsync(winner, loser);
 
             // Save match records for both players (winner's perspective and loser's perspective)
             RunBackgroundTask(() => SaveMatchToDb(winner.Name, winner, loser, matchId), "SaveMatchForWinner");

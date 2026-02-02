@@ -177,6 +177,25 @@ export function useGameHub(authToken: string | null) {
     };
   }, [authToken]);
 
+  // Warn user when trying to leave during an active game
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+
+    const isInActiveGame = appState === 'playing' || appState === 'waiting' || appState === 'paused';
+
+    if (isInActiveGame) {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [appState]);
+
   const createGame = useCallback(async (playerId: string, playerName: string) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       setIsPlayer1(true);
