@@ -1,13 +1,13 @@
 -- =====================================================
 -- KEYSPACE
 -- =====================================================
-CREATE KEYSPACE IF NOT EXISTS pong_game
+CREATE KEYSPACE IF NOT EXISTS npp
 WITH replication = {
     'class': 'SimpleStrategy',
     'replication_factor': 1
 };
 
-USE pong_game;
+USE npp;
 
 -- =====================================================
 -- PLAYERS (osnovni podaci o igraču)
@@ -115,6 +115,17 @@ CREATE TABLE IF NOT EXISTS leaderboard_by_longest_streak (
     username text,
     PRIMARY KEY (category, longest_streak, player_id)
 ) WITH CLUSTERING ORDER BY (longest_streak DESC);
+
+CREATE TABLE recent_matches (
+    period text,                 -- "2024-01" 
+    match_time timestamp,
+    match_id uuid,
+    player1_username text,
+    player2_username text,
+    score text,
+    result text,                 -- Ko je pobedio
+    PRIMARY KEY ((period), match_time, match_id)
+) WITH CLUSTERING ORDER BY (match_time DESC);
 
 -- =====================================================
 -- REDIS STRUCTURES (DOKUMENTACIJA)
