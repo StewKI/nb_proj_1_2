@@ -10,6 +10,11 @@ export async function login(request: LoginRequest): Promise<User> {
   });
 
   if (!response.ok) {
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Login failed');
+    }
     const error = await response.text();
     throw new Error(error || 'Login failed');
   }
@@ -28,6 +33,11 @@ export async function register(request: RegisterRequest): Promise<User> {
   });
 
   if (!response.ok) {
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Registration failed');
+    }
     const error = await response.text();
     throw new Error(error || 'Registration failed');
   }

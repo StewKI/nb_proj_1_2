@@ -59,8 +59,7 @@ public class GlobalExceptionHandler : IExceptionHandler
 
     private static string GetDetail(Exception exception)
     {
-        // U development vraćamo detalje, u production samo generičku poruku
-        return exception is ArgumentException or KeyNotFoundException
+        return exception is ArgumentException or KeyNotFoundException or InvalidOperationException
             ? exception.Message
             : "An error occurred while processing your request.";
     }
