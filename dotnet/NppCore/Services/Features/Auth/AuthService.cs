@@ -25,6 +25,14 @@ public class AuthService : IAuthService
         string email,
         string password)
     {
+        var existingPlayer = await _playerService.GetByUsernameAsync(username);
+        if (existingPlayer != null)
+            throw new InvalidOperationException("A user with this username already exists");
+
+        var existingEmail = await _playerService.GetByEmailAsync(email);
+        if (existingEmail != null)
+            throw new InvalidOperationException("A user with this email already exists");
+
         var player = await _playerService.CreateAsync(username, email);
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);

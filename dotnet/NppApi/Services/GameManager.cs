@@ -592,18 +592,13 @@ public class GameManagerService : IHostedService, IDisposable
             var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2;
             var loser = winner == game.Player1 ? game.Player2 : game.Player1;
             Guid matchId=Guid.NewGuid();
-            // Feature-mlacky
-            _ = SaveHistoryToDb(winner.Name, winner, loser,matchId);
-            _ = SaveMatchToDb(winner.Name, winner, loser, matchId);
-            _ = SaveMatchToDb(winner.Name, loser, winner,matchId);
 
-            // Develop
             _ = UpdatePlayerStatsAsync(winner, loser);
 
             // Save match records for both players (winner's perspective and loser's perspective)
-            RunBackgroundTask(() => SaveMatchToDb(winner.Name, winner, loser), "SaveMatchForWinner");
-            RunBackgroundTask(() => SaveMatchToDb(winner.Name, loser, winner), "SaveMatchForLoser");
-            RunBackgroundTask(() => SaveHistoryToDb(winner.Name, winner, loser), "SaveHistory");
+            RunBackgroundTask(() => SaveMatchToDb(winner.Name, winner, loser, matchId), "SaveMatchForWinner");
+            RunBackgroundTask(() => SaveMatchToDb(winner.Name, loser, winner, matchId), "SaveMatchForLoser");
+            RunBackgroundTask(() => SaveHistoryToDb(winner.Name, winner, loser, matchId), "SaveHistory");
             RunBackgroundTask(() => UpdatePlayerStatsAsync(winner, loser), "UpdateStats");
 
             _ = _hubContext.Clients.Client(game.Player1.ConnectionId)
@@ -686,7 +681,6 @@ public class GameManagerService : IHostedService, IDisposable
         var player1 = results[0];
         var player2 = results[1];
 
-        await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,matchId,p2.Name,score,result);
         if (player1 == null || player2 == null)
         {
             _logger.LogError("Player not found in database: {Player1} or {Player2}", p1.Name, p2.Name);
@@ -696,7 +690,7 @@ public class GameManagerService : IHostedService, IDisposable
         string score = (p1.Name == winnerName) ? "Win" : "Loss";
         string result = $"{p1.Score}-{p2.Score}";
 
-        await matchService.CreateAsync(player1.PlayerId, player2.PlayerId, DateTime.UtcNow.Year.ToString(), DateTime.UtcNow, p2.Name, score, result);
+        await matchService.CreateAsync(player1.PlayerId, player2.PlayerId, DateTime.UtcNow.Year.ToString(), DateTime.UtcNow, matchId, p2.Name, score, result);
     }
 
     private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2,Guid matchId)

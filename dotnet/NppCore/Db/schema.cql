@@ -30,6 +30,14 @@ CREATE TABLE IF NOT EXISTS players_by_email (
 );
 
 -- =====================================================
+-- PLAYERS BY USERNAME (lookup by username)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS players_by_username (
+    username text PRIMARY KEY,
+    player_id uuid
+);
+
+-- =====================================================
 -- MATCH HISTORY (mečevi po igraču i godini)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS player_matches (
