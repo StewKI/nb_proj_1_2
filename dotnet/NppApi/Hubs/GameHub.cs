@@ -7,10 +7,10 @@ namespace NppApi.Hubs;
 
 public class GameHub : Hub
 {
-    private readonly GameManager _gameManager;
+    private readonly GameManagerService _gameManager;
     private readonly ILogger<GameHub> _logger;
 
-    public GameHub(GameManager gameManager, ILogger<GameHub> logger)
+    public GameHub(GameManagerService gameManager, ILogger<GameHub> logger)
     {
         _gameManager = gameManager;
         _logger = logger;

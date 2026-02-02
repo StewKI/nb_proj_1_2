@@ -21,6 +21,14 @@ public class PlayerStatsService : IPlayerStatsService
         _logger = logger;
     }
 
+    public async Task<Models.PlayerStatsSnapshot?> GetStatsAsync(Guid playerId)
+    {
+        return await _cassandra.QueryFirstOrDefaultAsync<Models.PlayerStatsSnapshot>(
+            "SELECT player_id, total_points, games_won, games_lost FROM player_stats WHERE player_id = ?",
+            playerId
+        );
+    }
+
     public async Task UpdateStatsAfterMatchAsync(
         Guid winnerId,
         string winnerUsername,
@@ -36,12 +44,12 @@ public class PlayerStatsService : IPlayerStatsService
         long loserPoints = loserScore * GameConstants.PointsPerScore;
 
         // DUAL WRITE PROBLEM MITIGATION:
-        // Cassandra nema ACID transakcije preko više tabela.
-        // Logujemo greške i nastavljamo sa ostalim operacijama.
+        // Cassandra doesn't have ACID transactions across multiple tables.
+        // Log errors and continue with remaining operations.
         
         try
         {
-            // 1. Ažuriraj player_stats counter tabelu (CRITICAL - mora uspeti)
+            // 1. Update player_stats counter table (CRITICAL - must succeed)
             await _cassandra.ExecuteAsync(
                 "UPDATE player_stats SET total_points = total_points + ?, games_won = games_won + 1 WHERE player_id = ?",
                 winnerPoints, winnerId
@@ -57,12 +65,12 @@ public class PlayerStatsService : IPlayerStatsService
         catch (Exception ex)
         {
             _logger.LogError(ex, "CRITICAL: Failed to update player_stats for match {Winner} vs {Loser}", winnerId, loserId);
-            throw; // Re-throw jer je ovo kritično
+            throw; // Re-throw because this is critical
         }
 
         try
         {
-            // 2. Sačuvaj match history (IMPORTANT - ali ne kritično)
+            // 2. Save match history (IMPORTANT - but not critical)
             var year = now.Year.ToString();
             var matchScore = $"{winnerScore}:{loserScore}";
 
@@ -83,12 +91,12 @@ public class PlayerStatsService : IPlayerStatsService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save match history for {Winner} vs {Loser}", winnerId, loserId);
-            // Ne throw-ujemo, nastavljamo dalje
+            // Don't throw, continue with other operations
         }
 
         try
         {
-            // 3. Ažuriraj streaks (IMPORTANT)
+            // 3. Update streaks (IMPORTANT)
             await _leaderboardService.UpdatePlayerStreakAsync(winnerId, winnerUsername, won: true);
             await _leaderboardService.UpdatePlayerStreakAsync(loserId, loserUsername, won: false);
             
@@ -101,7 +109,7 @@ public class PlayerStatsService : IPlayerStatsService
 
         try
         {
-            // 4. Ažuriraj leaderboards (IMPORTANT)
+            // 4. Update leaderboards (IMPORTANT)
             await UpdatePlayerLeaderboardsAsync(winnerId, winnerUsername, currentMonth, currentYear, includeWins: true);
             await UpdatePlayerLeaderboardsAsync(loserId, loserUsername, currentMonth, currentYear, includeWins: false);
             
@@ -114,7 +122,7 @@ public class PlayerStatsService : IPlayerStatsService
     }
 
     /// <summary>
-    /// Helper metoda koja eliminiše duplikaciju koda za ažuriranje leaderboard-a
+    /// Helper method that eliminates code duplication for leaderboard updates
     /// </summary>
     private async Task UpdatePlayerLeaderboardsAsync(
         Guid playerId, 
@@ -130,7 +138,7 @@ public class PlayerStatsService : IPlayerStatsService
 
         if (playerStats == null) return;
 
-        // Wins leaderboard (samo za pobednike)
+        // Wins leaderboard (only for winners)
         if (includeWins && playerStats.GamesWon > 0)
         {
             await _leaderboardService.AddOrUpdateWinsLeaderboardAsync(
@@ -141,7 +149,7 @@ public class PlayerStatsService : IPlayerStatsService
             );
         }
 
-        // Global leaderboard (za sve igrače sa poenima)
+        // Global leaderboard (for all players with points)
         if (playerStats.TotalPoints > 0)
         {
             await _leaderboardService.AddOrUpdateGlobalLeaderboardAsync(

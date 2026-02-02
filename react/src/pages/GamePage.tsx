@@ -7,6 +7,9 @@ import { GameCanvas } from '../components/GameCanvas'
 
 export function GamePage() {
   const { user, logout } = useAuth();
+  // Get token - it changes when user logs in/out
+  const token = localStorage.getItem('jwt_token');
+
   const {
     connected,
     lobby,
@@ -20,10 +23,21 @@ export function GamePage() {
     movePaddle,
     refreshLobby,
     returnToLobby,
-  } = useGameHub();
+  } = useGameHub(token);
 
   const playerName = user?.username ?? 'Player';
   const playerId = user?.playerId ?? '';
+
+  // Show login prompt if not authenticated
+  if (!token || !user) {
+    return (
+      <div className="auth-required">
+        <h1>Authentication Required</h1>
+        <p>Please log in to play the game.</p>
+        <Link to="/login">Go to Login</Link>
+      </div>
+    );
+  }
 
   if (appState === 'reconnecting') {
     return (
