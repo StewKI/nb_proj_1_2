@@ -143,6 +143,17 @@ export function useGameHub(authToken: string | null) {
       setPauseMessage(null);
     });
 
+    newConnection.on('GameCancelled', () => {
+      clearReconnectToken();
+      setAppState('lobby');
+      setGameState(null);
+      setError(null);
+    });
+
+    newConnection.on('CancelFailed', (message: string) => {
+      setError(message);
+    });
+
     newConnection.start()
       .then(() => {
         setConnected(true);
@@ -213,6 +224,12 @@ export function useGameHub(authToken: string | null) {
     }
   }, []);
 
+  const cancelGame = useCallback(async () => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
+      await connectionRef.current.invoke('CancelGame');
+    }
+  }, []);
+
   return {
     connected,
     lobby,
@@ -228,5 +245,6 @@ export function useGameHub(authToken: string | null) {
     refreshLobby,
     returnToLobby,
     attemptReconnect,
+    cancelGame,
   };
 }

@@ -418,6 +418,34 @@ public class GameManagerService : IHostedService, IDisposable
             .ToList();
     }
 
+    public async Task<bool> CancelGameAsync(string connectionId)
+    {
+        if (!_playerGameMap.TryGetValue(connectionId, out var gameId))
+            return false;
+
+        if (!_games.TryGetValue(gameId, out var game))
+            return false;
+
+        if (game.State != GameState.WaitingForPlayer)
+            return false;
+
+        if (game.Player1?.ConnectionId != connectionId)
+            return false;
+
+        _games.TryRemove(gameId, out _);
+        _playerGameMap.TryRemove(connectionId, out _);
+
+        RunBackgroundTask(async () =>
+        {
+            await _gameStateRepository.RemoveGameAsync(gameId);
+            await _gameStateRepository.RemovePlayerMappingAsync(connectionId);
+            await _gameStateRepository.RemoveGameTokensAsync(gameId);
+        }, $"CleanupCancelledGame-{gameId}");
+
+        _logger.LogInformation("Game {GameId} cancelled by host {ConnectionId}", gameId, connectionId);
+        return true;
+    }
+
     public void UpdatePaddle(string connectionId, double y)
     {
         if (!_playerGameMap.TryGetValue(connectionId, out var gameId))

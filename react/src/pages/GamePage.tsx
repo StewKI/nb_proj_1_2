@@ -23,6 +23,7 @@ export function GamePage() {
     movePaddle,
     refreshLobby,
     returnToLobby,
+    cancelGame,
   } = useGameHub(token);
 
   const playerName = user?.username ?? 'Player';
@@ -69,6 +70,9 @@ export function GamePage() {
         <h1>Waiting for opponent...</h1>
         <p>Share this page with a friend to play!</p>
         <div className="loader"></div>
+        <button onClick={cancelGame} className="cancel-btn">
+          Cancel
+        </button>
       </div>
     );
   }

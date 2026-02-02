@@ -166,6 +166,29 @@ public class GameHub : Hub
         }
     }
 
+    public async Task CancelGame()
+    {
+        try
+        {
+            var success = await _gameManager.CancelGameAsync(Context.ConnectionId);
+
+            if (success)
+            {
+                await Clients.Caller.SendAsync("GameCancelled");
+                await Clients.All.SendAsync("LobbyUpdated", _gameManager.GetOpenGames());
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("CancelFailed", "Unable to cancel game");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling game for connection {ConnectionId}", Context.ConnectionId);
+            throw new HubException("Failed to cancel game. Please try again.");
+        }
+    }
+
     public Task MovePaddle(double y)
     {
         try
