@@ -1,60 +1,60 @@
 namespace NppCore.Models;
 
 // =====================================================
-// ENTITY MODELS (mapiranje na Cassandra tabele)
+// ENTITY MODELS (mapping to Cassandra tables)
 // =====================================================
 
 /// <summary>
-/// Entity za global_leaderboard tabelu
+/// Entity for global_leaderboard table
 /// </summary>
 public class GlobalLeaderboardEntry
 {
     public string PeriodType { get; set; } = string.Empty; // 'MONTHLY', 'YEARLY', 'ALL_TIME'
-    public string PeriodId { get; set; } = string.Empty; // npr. '2024-01'
+    public string PeriodId { get; set; } = string.Empty; // e.g. '2024-01'
     public int RankScore { get; set; }
     public Guid PlayerId { get; set; }
     public string Username { get; set; } = string.Empty;
 }
 
 /// <summary>
-/// Entity za leaderboard_by_wins tabelu
+/// Entity for leaderboard_by_wins table
 /// </summary>
 public class WinsLeaderboardEntry
 {
-    public string Category { get; set; } = string.Empty; // npr. 'most_wins'
+    public string Category { get; set; } = string.Empty; // e.g. 'most_wins'
     public int GamesWon { get; set; }
     public Guid PlayerId { get; set; }
     public string Username { get; set; } = string.Empty;
 }
 
 /// <summary>
-/// Entity za player_current_streak tabelu
+/// Entity for player_current_streak table
 /// </summary>
 public class PlayerStreak
 {
     public Guid PlayerId { get; set; }
     public int CurrentStreak { get; set; }
     public int LongestStreak { get; set; }
-    public string LastResult { get; set; } = string.Empty; // 'WIN' ili 'LOSS'
+    public string LastResult { get; set; } = string.Empty; // 'WIN' or 'LOSS'
 }
 
 /// <summary>
-/// Entity za leaderboard_by_longest_streak tabelu
+/// Entity for leaderboard_by_longest_streak table
 /// </summary>
 public class StreakLeaderboardEntry
 {
-    public string Category { get; set; } = string.Empty; // npr. 'global_all_time'
+    public string Category { get; set; } = string.Empty; // e.g. 'global_all_time'
     public int LongestStreak { get; set; }
     public Guid PlayerId { get; set; }
     public string Username { get; set; } = string.Empty;
 }
 
 // =====================================================
-// DTOs (Data Transfer Objects za API)
+// DTOs (Data Transfer Objects for API)
 // =====================================================
 
 /// <summary>
-/// DTO za prikaz leaderboard entry-ja (generički)
+/// DTO for displaying a leaderboard entry (generic)
 /// </summary>
 public record LeaderboardEntryDto(
     int Rank,
@@ -64,7 +64,7 @@ public record LeaderboardEntryDto(
 );
 
 /// <summary>
-/// DTO za prikaz streak informacija
+/// DTO for displaying streak information
 /// </summary>
 public record PlayerStreakDto(
     Guid PlayerId,
@@ -74,7 +74,7 @@ public record PlayerStreakDto(
 );
 
 /// <summary>
-/// Response za global leaderboard
+/// Response for global leaderboard
 /// </summary>
 public record GlobalLeaderboardResponse(
     string PeriodType,
@@ -83,7 +83,7 @@ public record GlobalLeaderboardResponse(
 );
 
 /// <summary>
-/// Response za wins leaderboard
+/// Response for wins leaderboard
 /// </summary>
 public record WinsLeaderboardResponse(
     string Category,
@@ -91,7 +91,7 @@ public record WinsLeaderboardResponse(
 );
 
 /// <summary>
-/// Response za streak leaderboard
+/// Response for streak leaderboard
 /// </summary>
 public record StreakLeaderboardResponse(
     string Category,

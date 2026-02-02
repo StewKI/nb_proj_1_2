@@ -8,7 +8,7 @@ using NppCore.Services.Persistence.Cassandra;
 
 namespace NppApi.Controllers;
 
-[Authorize] // 🔒 Zaštićeno - samo autentifikovani korisnici
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class AdminController : ControllerBase
@@ -28,8 +28,8 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// Manualno pokreni snapshot leaderboards-a (za testiranje)
-    /// GET /api/admin/snapshot-leaderboards
+    /// Manually trigger leaderboard snapshot
+    /// POST /api/admin/snapshot-leaderboards
     /// </summary>
     [HttpPost("snapshot-leaderboards")]
     public async Task<ActionResult> SnapshotLeaderboards()
@@ -42,9 +42,9 @@ public class AdminController : ControllerBase
             var currentMonth = $"{now.Year}-{now.Month:D2}";
             var currentYear = $"{now.Year}";
 
-            // Učitaj sve player_stats
+            // Load all player_stats
             var playerStatsQuery = @"
-                SELECT player_id, total_points, games_won, games_lost 
+                SELECT player_id, total_points, games_won, games_lost
                 FROM player_stats";
 
             var playerStats = await _cassandra.QueryAsync<PlayerStatsSnapshot>(playerStatsQuery);
@@ -98,7 +98,7 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// Dodaj poene igraču u player_stats (za testiranje)
+    /// Add points to a player in player_stats
     /// POST /api/admin/add-points
     /// </summary>
     [HttpPost("add-points")]
@@ -106,12 +106,12 @@ public class AdminController : ControllerBase
     {
         try
         {
-            // Ažuriraj counter tabelu
+            // Update counter table
             await _cassandra.ExecuteAsync(
-                @"UPDATE player_stats 
-                  SET total_points = total_points + ?, 
-                      games_won = games_won + ?, 
-                      games_lost = games_lost + ? 
+                @"UPDATE player_stats
+                  SET total_points = total_points + ?,
+                      games_won = games_won + ?,
+                      games_lost = games_lost + ?
                   WHERE player_id = ?",
                 request.Points,
                 request.Wins,
@@ -135,13 +135,13 @@ public class AdminController : ControllerBase
 public record AddPointsRequest(
     [Required]
     Guid PlayerId,
-    
+
     [Range(0, GameConstants.MaxPointsPerUpdate, ErrorMessage = "Points must be between 0 and 10000")]
     int Points,
-    
+
     [Range(0, GameConstants.MaxWinsLossesPerUpdate, ErrorMessage = "Wins must be between 0 and 100")]
     int Wins,
-    
+
     [Range(0, GameConstants.MaxWinsLossesPerUpdate, ErrorMessage = "Losses must be between 0 and 100")]
     int Losses
 );

@@ -22,10 +22,10 @@ public class LeaderboardSnapshotService : BackgroundService
     {
         _logger.LogInformation("LeaderboardSnapshotService started");
 
-        // Čekaj 5 sekundi da se aplikacija potpuno pokrene
+        // Wait 5 seconds for the application to fully start
         await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
-        // IZVRŠI ODMAH PRI STARTOVANJU
+        // Run immediately on startup
         if (!stoppingToken.IsCancellationRequested)
         {
             _logger.LogInformation("Running initial leaderboard snapshot on startup...");
@@ -39,18 +39,15 @@ public class LeaderboardSnapshotService : BackgroundService
             }
         }
 
-        // ZATIM RADI SVAKI DAN
+        // Then run daily
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                // Izračunaj vreme do sledećeg pokretanja (ponoć)
+                // Calculate time until next run (midnight UTC)
                 var now = DateTimeOffset.UtcNow;
-                var nextRun = now.Date.AddDays(1).AddHours(0); // Sutra u ponoć UTC
+                var nextRun = now.Date.AddDays(1).AddHours(0);
                 var delay = nextRun - now;
-
-                // Za testiranje, možeš koristiti kraći interval:
-                // var delay = TimeSpan.FromMinutes(5);
 
                 _logger.LogInformation($"Next leaderboard snapshot will run at {nextRun:yyyy-MM-dd HH:mm:ss} UTC (in {delay.TotalHours:F2} hours)");
 
@@ -64,7 +61,7 @@ public class LeaderboardSnapshotService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in LeaderboardSnapshotService");
-                // Čekaj 1 sat pre nego što pokušaš ponovo
+                // Wait 1 hour before retrying
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
             }
         }
@@ -84,9 +81,9 @@ public class LeaderboardSnapshotService : BackgroundService
             var currentMonth = $"{now.Year}-{now.Month:D2}";
             var currentYear = $"{now.Year}";
 
-            // 1. Učitaj sve player_stats
+            // 1. Load all player_stats
             var playerStatsQuery = @"
-                SELECT player_id, total_points, games_won, games_lost 
+                SELECT player_id, total_points, games_won, games_lost
                 FROM player_stats";
 
             var playerStats = await cassandra.QueryAsync<PlayerStatsSnapshot>(playerStatsQuery);
@@ -94,7 +91,7 @@ public class LeaderboardSnapshotService : BackgroundService
 
             _logger.LogInformation($"Found {statsList.Count} players in player_stats");
 
-            // 2. Za svakog igrača, učitaj username iz players tabele
+            // 2. For each player, load username from players table
             foreach (var stats in statsList)
             {
                 try
@@ -110,7 +107,7 @@ public class LeaderboardSnapshotService : BackgroundService
                         continue;
                     }
 
-                    // 3. Ažuriraj Wins Leaderboard
+                    // 3. Update Wins Leaderboard
                     if (stats.GamesWon > 0)
                     {
                         await leaderboardService.AddOrUpdateWinsLeaderboardAsync(
@@ -121,7 +118,7 @@ public class LeaderboardSnapshotService : BackgroundService
                         );
                     }
 
-                    // 4. Ažuriraj Global Leaderboard
+                    // 4. Update Global Leaderboard
                     if (stats.TotalPoints > 0)
                     {
                         // Monthly

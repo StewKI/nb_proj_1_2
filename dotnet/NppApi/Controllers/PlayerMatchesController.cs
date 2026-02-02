@@ -24,19 +24,19 @@ public class PlayerMatchesController : ControllerBase
     {
         if (string.IsNullOrEmpty(year) || year.Length != 4)
         {
-            return BadRequest("Godina mora biti u formatu YYYY.");
+            return BadRequest("Year must be in YYYY format.");
         }
 
         var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (string.IsNullOrEmpty(userIdString))
         {
-            return Unauthorized("Nismo uspeli da identifikujemo korisnika iz tokena.");
+            return Unauthorized("Could not identify user from token.");
         }
 
         if (!Guid.TryParse(userIdString, out Guid playerId))
         {
-            return Unauthorized("Nevalidan token.");
+            return Unauthorized("Invalid token.");
         }
 
         var matches= await _playerMatchesService.GetByYearAsync(year,playerId,page,limit);
@@ -51,7 +51,7 @@ public class PlayerMatchesController : ControllerBase
     public async Task<ActionResult<IEnumerable<MatchHistoryResponse>>> GetHistoryAsync([FromQuery] int page=1,[FromQuery] int limit=10)
     {
         if (limit>100) limit=100;
-        
+
 
         string period=DateTimeOffset.UtcNow.ToString("yyyy-MM");
         var matches= await _playerMatchesService.GetHistoryAsync(period,page,limit);
