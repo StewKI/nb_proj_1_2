@@ -30,7 +30,7 @@ public class AuthService : IAuthService
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
         await _cassandra.ExecuteAsync(
-            "INSERT INTO players_by_email (email, password_hash, player_id) VALUES (?, ?, ?)",
+            "INSERT INTO players_by_email (email, password_hash, player_id) VALUES (?, ?, ?) ",
             email,
             passwordHash,
             player.PlayerId

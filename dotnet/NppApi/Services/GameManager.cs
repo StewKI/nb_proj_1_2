@@ -581,11 +581,11 @@ public class GameManager : IHostedService, IDisposable
 
             var winner = game.Player1.Score >= Game.WinScore ? game.Player1 : game.Player2;
             var loser = winner == game.Player1 ? game.Player2 : game.Player1;
-
+            Guid matchId=Guid.NewGuid();
             // Feature-mlacky
-            _ = SaveMatchToDb(winner.Name, winner, loser);
-            _ = SaveMatchToDb(winner.Name, loser, winner);
-            _ = SaveHistoryToDb(winner.Name, winner, loser);
+            _ = SaveHistoryToDb(winner.Name, winner, loser,matchId);
+            _ = SaveMatchToDb(winner.Name, winner, loser, matchId);
+            _ = SaveMatchToDb(winner.Name, loser, winner,matchId);
 
             // Develop
             _ = UpdatePlayerStatsAsync(winner, loser);
@@ -642,7 +642,7 @@ public class GameManager : IHostedService, IDisposable
             _ = _hubContext.Clients.Client(game.Player2.ConnectionId).SendAsync("GameStateUpdated", stateDto);
     }
 
-    private async Task SaveMatchToDb(string winnerName,Player p1,Player p2)
+    private async Task SaveMatchToDb(string winnerName,Player p1,Player p2,Guid matchId)
     {
         using (var scope = _serviceScopeFactory.CreateScope())
         {
@@ -667,18 +667,18 @@ public class GameManager : IHostedService, IDisposable
 
             string result = $"{p1.Score}-{p2.Score}";
 
-            await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,p2.Name,score,result);
+            await matchService.CreateAsync(player1.PlayerId,player2.PlayerId,DateTime.UtcNow.Year.ToString(),DateTime.UtcNow,matchId,p2.Name,score,result);
         }
     }
 
-    private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2)
+    private async Task SaveHistoryToDb(string winnerName,Player p1,Player p2,Guid matchId)
     {
         using (var scope = _serviceScopeFactory.CreateScope())
         {
             var matchService = scope.ServiceProvider.GetRequiredService<IPlayerMatchesService>();
             string result = $"{p1.Score}-{p2.Score}";
 
-            await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow,p1.Name,p2.Name,winnerName,result);
+            await matchService.CreateHistoryAsync(DateTimeOffset.UtcNow,p1.Name,p2.Name,winnerName,result,matchId);
         }
     }
 }
