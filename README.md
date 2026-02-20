@@ -99,7 +99,7 @@ Projekat je dizajniran tako da se može bezbedno ugasiti i ponovo pokrenuti bez 
 # Gašenje (podaci ostaju sačuvani)
 docker compose down
 
-# Ponovnom pokretanje
+# Ponovno pokretanje
 docker compose up
 ```
 
