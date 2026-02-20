@@ -7,7 +7,7 @@ Multiplayer ping pong igra u realnom vremenu sa .NET backend-om i React frontend
 - **Backend**: .NET 10, ASP.NET Core, SignalR
 - **Frontend**: React 19, TypeScript, Vite
 - **Baza podataka**: Cassandra (za perzistenciju - planirano)
-- **Cache**: Redis (za stanje igre u realnom vremenu - planirano)
+- **Cache**: Redis (za redovno čuvanje snapshot-a stanja igre)
 - **Kontejnerizacija**: Docker, Docker Compose
 
 ## Struktura projekta
@@ -42,13 +42,22 @@ npp/
    cd npp
    ```
 
-2. Pokrenite aplikaciju:
+2. Popunite .env
+   - u direktorijumu _./docker_
+   - na osnovu _./docker/.env.example_
+
+
+3. Pokrenite aplikaciju:
    ```bash
    cd docker
    docker compose up --build
    ```
 
-3. Otvorite pregledac:
+4. Dodajte tabele u Cassandra-u:
+   - konektovati se na cassandradb (localhost:9042)
+   - izvršiti sve komande iz fajla _./dotnet/NppCore/Db/schema.cql_
+
+5. Otvorite pregledac:
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:5000
 
@@ -76,25 +85,11 @@ npp/
 
 ### Hot Reload
 
-Oba servisa podrzavaju hot reload u development modu:
+Oba servisa podrzavaju hot reload:
 
 - **Backend**: `dotnet watch` automatski restartuje pri promeni .cs fajlova
 - **Frontend**: Vite HMR automatski osvezava browser pri promeni
 
-### Pokretanje bez Docker-a
-
-**Backend:**
-```bash
-cd dotnet/NppApi
-dotnet watch run
-```
-
-**Frontend:**
-```bash
-cd react
-npm install
-npm run dev
-```
 
 ## Arhitektura
 
@@ -113,3 +108,4 @@ npm run dev
 - **GameManager** servis upravlja stanjem svih aktivnih igara u memoriji
 - **Game loop** radi na 60 FPS i racuna fiziku lopte i kolizije
 - Stanje igre se salje svim igracima 60 puta u sekundi
+- Stanje igre se takođe pamti kao **snapshot** i omogućava oporavak i vraćanje u prethodno u slučaju prekida igre
